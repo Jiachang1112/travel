@@ -110,200 +110,243 @@
                 </div>
             </header>
 
-            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50 flex flex-col">
+            <main class="flex-1 flex flex-col overflow-hidden relative bg-gray-50">
                 
-                <div v-if="currentView === 'dashboard'" class="space-y-4 flex-1">
-                    <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
-                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
-                        <p>還沒有任何旅程</p>
-                        <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
+                <div class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
+                    
+                    <div v-if="currentView === 'dashboard'" class="space-y-4 pb-4">
+                        <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
+                            <p>還沒有任何旅程</p>
+                            <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
+                        </div>
+
+                        <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
+                             class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
+                            
+                            <div class="relative z-10 flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
+                                    <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
+                                        <i class="far fa-calendar-alt mr-1.5"></i> 
+                                        {{ trip.startDate.replace(/-/g, '/') }} 
+                                        <span v-if="trip.endDate" class="mx-1">~</span> 
+                                        {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 flex items-center gap-1">
+                                        <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
+                                        <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
+                                    </p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
+                            </div>
+                        </div>
                     </div>
 
-                    <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
-                         class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
-                        <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
+                    <div v-else-if="currentView === 'planner'">
                         
-                        <div class="relative z-10 flex justify-between items-start">
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
-                                <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
-                                    <i class="far fa-calendar-alt mr-1.5"></i> 
-                                    {{ trip.startDate.replace(/-/g, '/') }} 
-                                    <span v-if="trip.endDate" class="mx-1">~</span> 
-                                    {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
-                                </p>
-                                <p class="text-xs text-gray-500 flex items-center gap-1">
-                                    <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
-                                    <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
-                                </p>
+                        <div v-if="activeTab === 'schedule'">
+                            <div class="flex space-x-2 overflow-x-auto no-scrollbar mb-6 p-2">
+                                <button v-for="(day, index) in days" :key="index" @click="currentDayIndex = index"
+                                    :class="currentDayIndex === index ? 'bg-primary text-white shadow-lg shadow-indigo-200 ring-2 ring-primary ring-offset-1' : 'bg-white text-gray-500 border border-gray-100'"
+                                    class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
+                                    Day {{ index + 1 }}
+                                </button>
                             </div>
-                            <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
-                        </div>
-                    </div>
 
-                    <div v-if="trips.length > 0" class="mt-6 mb-20">
-                        <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden">
-                            <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl">
-                                <i class="fas fa-plane-departure"></i>
+                            <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2 pb-20">
+                                <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
+                                    <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm z-10"></div>
+                                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
+                                        <div class="flex justify-between items-start mb-1">
+                                            <span class="text-primary font-bold text-lg font-mono tracking-tight">{{ event.time }}</span>
+                                            <div class="flex space-x-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
+                                                <button @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                            </div>
+                                        </div>
+                                        <h3 class="font-bold text-gray-800 text-lg mb-1">{{ event.title }}</h3>
+                                        <div v-if="event.location" class="flex items-center text-gray-500 text-sm mb-2 cursor-pointer" @click="openMap(event.location)">
+                                            <i class="fas fa-map-marker-alt mr-1.5 text-secondary"></i>
+                                            <span class="truncate border-b border-dashed border-gray-300 hover:text-gray-700">{{ event.location }}</span>
+                                        </div>
+                                        <p v-if="event.note" class="text-gray-400 text-sm mt-2 pt-2 border-t border-gray-50 flex items-start">
+                                            <i class="fas fa-info-circle mr-1.5 mt-0.5 opacity-50"></i> <span>{{ event.note }}</span>
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <h3 class="text-sm font-bold opacity-90 mb-4 flex items-center">
-                                <i class="fas fa-passport mr-2"></i> 旅遊生涯統計
-                            </h3>
-                            
-                            <div class="flex justify-between items-center relative z-10">
-                                <div class="text-center">
-                                    <p class="text-2xl font-bold">{{ userStats.totalTrips }}</p>
-                                    <p class="text-[10px] opacity-75">總旅程</p>
-                                </div>
-                                <div class="w-px h-8 bg-white/20"></div>
-                                <div class="text-center">
-                                    <p class="text-2xl font-bold">{{ userStats.totalDays }}</p>
-                                    <p class="text-[10px] opacity-75">總天數</p>
-                                </div>
-                                <div class="w-px h-8 bg-white/20"></div>
-                                <div class="text-center">
-                                    <p class="text-2xl font-bold">{{ userStats.uniquePlaces }}</p>
-                                    <p class="text-[10px] opacity-75">探索地點</p>
-                                </div>
+                            <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">🗓️</div>
+                                <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
                             </div>
                         </div>
-                        <p class="text-center text-xs text-gray-300 mt-3 italic">"旅行是唯一讓你花了錢，卻變得更富有的事物"</p>
+
+                        <div v-else-if="activeTab === 'expense'" class="pb-20">
+                            <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl shadow-gray-200/50 mb-6 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+                                <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">總支出</p>
+                                <h2 class="text-4xl font-bold font-mono tracking-tight flex items-baseline">
+                                    <span class="text-xl mr-1">{{ currentTrip.currency || '$' }}</span>{{ totalExpense.toLocaleString() }}
+                                </h2>
+                                <div class="mt-6 flex justify-between items-end">
+                                    <div>
+                                        <p class="text-gray-400 text-xs mb-1">平均每人</p>
+                                        <p class="font-mono text-lg">{{ currentTrip.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
+                                    </div>
+                                    <div class="flex -space-x-2">
+                                        <div v-for="(u, i) in (currentTrip.companions || [])" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
+                                            {{ u.charAt(0) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
+                                <div class="flex justify-between items-end mb-2">
+                                    <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide">預算狀態</h3>
+                                    <button @click="openTripSettings" class="text-xs text-primary font-bold hover:underline">
+                                        {{ currentTrip.budget > 0 ? '調整' : '設定預算' }}
+                                    </button>
+                                </div>
+                                
+                                <div v-if="currentTrip.budget > 0">
+                                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                        <span>已用 {{ Math.round(budgetPercentage) }}%</span>
+                                        <span :class="remainingBudget < 0 ? 'text-red-500 font-bold' : ''">剩餘 {{ currentTrip.currency }}{{ remainingBudget.toLocaleString() }}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                                        <div class="h-2.5 rounded-full transition-all duration-500" 
+                                             :class="budgetColor"
+                                             :style="{ width: Math.min(budgetPercentage, 100) + '%' }"></div>
+                                    </div>
+                                    <p class="text-xs text-gray-300 mt-2 text-right">總預算 {{ currentTrip.currency }}{{ Number(currentTrip.budget).toLocaleString() }}</p>
+                                </div>
+                                
+                                <div v-else class="text-center py-2">
+                                    <p class="text-xs text-gray-400 mb-2">尚未設定旅遊預算</p>
+                                    <button @click="openTripSettings" class="w-full py-2 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-100 border border-dashed border-gray-300">
+                                        <i class="fas fa-plus-circle mr-1"></i> 新增預算上限
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-if="debts.length > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
+                                <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">結算方案</h3>
+                                <div class="space-y-3">
+                                    <div v-for="(debt, idx) in debts" :key="idx" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                        <div class="flex items-center text-sm">
+                                            <span class="font-bold text-gray-700">{{ debt.from }}</span>
+                                            <i class="fas fa-long-arrow-alt-right mx-2 text-gray-400"></i>
+                                            <span class="font-bold text-gray-700">{{ debt.to }}</span>
+                                        </div>
+                                        <span class="font-mono font-bold text-secondary">{{ currentTrip.currency || '$' }}{{ debt.amount.toLocaleString() }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="sortedExpenses.length > 0" class="space-y-3">
+                                <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
+                                            {{ expense.payer ? expense.payer.charAt(0) : '?' }}
+                                        </div>
+                                        <div>
+                                            <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
+                                            <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(expense.date) }} · {{ expense.payer }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-bold font-mono text-gray-800">{{ currentTrip.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
+                                        <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">💸</div>
+                                <p>請點選右下角+ 添加您的第一筆支出吧！</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div v-else-if="currentView === 'planner'">
-                    
-                    <div v-if="activeTab === 'schedule'">
-                        <div class="flex space-x-2 overflow-x-auto no-scrollbar mb-6 p-2">
-                            <button v-for="(day, index) in days" :key="index" @click="currentDayIndex = index"
-                                :class="currentDayIndex === index ? 'bg-primary text-white shadow-lg shadow-indigo-200 ring-2 ring-primary ring-offset-1' : 'bg-white text-gray-500 border border-gray-100'"
-                                class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
-                                Day {{ index + 1 }}
-                            </button>
+                <div v-if="currentView === 'dashboard' && trips.length > 0" class="p-4 bg-gray-50 z-30 shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)] border-t border-gray-100">
+                    <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden">
+                        <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl pointer-events-none">
+                            <i class="fas fa-plane-departure"></i>
                         </div>
-
-                        <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2 pb-20">
-                            <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
-                                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm z-10"></div>
-                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                    <div class="flex justify-between items-start mb-1">
-                                        <span class="text-primary font-bold text-lg font-mono tracking-tight">{{ event.time }}</span>
-                                        <div class="flex space-x-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
-                                            <button @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                                        </div>
-                                    </div>
-                                    <h3 class="font-bold text-gray-800 text-lg mb-1">{{ event.title }}</h3>
-                                    <div v-if="event.location" class="flex items-center text-gray-500 text-sm mb-2 cursor-pointer" @click="openMap(event.location)">
-                                        <i class="fas fa-map-marker-alt mr-1.5 text-secondary"></i>
-                                        <span class="truncate border-b border-dashed border-gray-300 hover:text-gray-700">{{ event.location }}</span>
-                                    </div>
-                                    <p v-if="event.note" class="text-gray-400 text-sm mt-2 pt-2 border-t border-gray-50 flex items-start">
-                                        <i class="fas fa-info-circle mr-1.5 mt-0.5 opacity-50"></i> <span>{{ event.note }}</span>
-                                    </p>
-                                </div>
+                        
+                        <h3 class="text-sm font-bold opacity-90 mb-4 flex items-center">
+                            <i class="fas fa-passport mr-2"></i> 旅遊生涯統計
+                        </h3>
+                        
+                        <div class="flex justify-between items-center relative z-10">
+                            <div class="text-center">
+                                <p class="text-2xl font-bold">{{ userStats.totalTrips }}</p>
+                                <p class="text-[10px] opacity-75">總旅程</p>
                             </div>
-                        </div>
-                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
-                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">🗓️</div>
-                            <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
+                            <div class="w-px h-8 bg-white/20"></div>
+                            <div class="text-center">
+                                <p class="text-2xl font-bold">{{ userStats.totalDays }}</p>
+                                <p class="text-[10px] opacity-75">總天數</p>
+                            </div>
+                            <div class="w-px h-8 bg-white/20"></div>
+                            <div class="text-center">
+                                <p class="text-2xl font-bold">{{ userStats.uniquePlaces }}</p>
+                                <p class="text-[10px] opacity-75">探索地點</p>
+                            </div>
                         </div>
                     </div>
-
-                    <div v-else-if="activeTab === 'expense'" class="pb-20">
-                        <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl shadow-gray-200/50 mb-6 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-                            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">總支出</p>
-                            <h2 class="text-4xl font-bold font-mono tracking-tight flex items-baseline">
-                                <span class="text-xl mr-1">{{ currentTrip.currency || '$' }}</span>{{ totalExpense.toLocaleString() }}
-                            </h2>
-                            <div class="mt-6 flex justify-between items-end">
-                                <div>
-                                    <p class="text-gray-400 text-xs mb-1">平均每人</p>
-                                    <p class="font-mono text-lg">{{ currentTrip.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
-                                </div>
-                                <div class="flex -space-x-2">
-                                    <div v-for="(u, i) in (currentTrip.companions || [])" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
-                                        {{ u.charAt(0) }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
-                            <div class="flex justify-between items-end mb-2">
-                                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide">預算狀態</h3>
-                                <button @click="openTripSettings" class="text-xs text-primary font-bold hover:underline">
-                                    {{ currentTrip.budget > 0 ? '調整' : '設定預算' }}
-                                </button>
-                            </div>
-                            
-                            <div v-if="currentTrip.budget > 0">
-                                <div class="flex justify-between text-xs text-gray-500 mb-1">
-                                    <span>已用 {{ Math.round(budgetPercentage) }}%</span>
-                                    <span :class="remainingBudget < 0 ? 'text-red-500 font-bold' : ''">剩餘 {{ currentTrip.currency }}{{ remainingBudget.toLocaleString() }}</span>
-                                </div>
-                                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                    <div class="h-2.5 rounded-full transition-all duration-500" 
-                                         :class="budgetColor"
-                                         :style="{ width: Math.min(budgetPercentage, 100) + '%' }"></div>
-                                </div>
-                                <p class="text-xs text-gray-300 mt-2 text-right">總預算 {{ currentTrip.currency }}{{ Number(currentTrip.budget).toLocaleString() }}</p>
-                            </div>
-                            
-                            <div v-else class="text-center py-2">
-                                <p class="text-xs text-gray-400 mb-2">尚未設定旅遊預算</p>
-                                <button @click="openTripSettings" class="w-full py-2 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-100 border border-dashed border-gray-300">
-                                    <i class="fas fa-plus-circle mr-1"></i> 新增預算上限
-                                </button>
-                            </div>
-                        </div>
-
-                        <div v-if="debts.length > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
-                            <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">結算方案</h3>
-                            <div class="space-y-3">
-                                <div v-for="(debt, idx) in debts" :key="idx" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                    <div class="flex items-center text-sm">
-                                        <span class="font-bold text-gray-700">{{ debt.from }}</span>
-                                        <i class="fas fa-long-arrow-alt-right mx-2 text-gray-400"></i>
-                                        <span class="font-bold text-gray-700">{{ debt.to }}</span>
-                                    </div>
-                                    <span class="font-mono font-bold text-secondary">{{ currentTrip.currency || '$' }}{{ debt.amount.toLocaleString() }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div v-if="sortedExpenses.length > 0" class="space-y-3">
-                            <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
-                                        {{ expense.payer ? expense.payer.charAt(0) : '?' }}
-                                    </div>
-                                    <div>
-                                        <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
-                                        <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(expense.date) }} · {{ expense.payer }}</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <p class="font-bold font-mono text-gray-800">{{ currentTrip.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
-                                    <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
-                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">💸</div>
-                            <p>請點選右下角+ 添加您的第一筆支出吧！</p>
-                        </div>
-                    </div>
+                    <p class="text-center text-[10px] text-gray-300 mt-2 italic">"旅行是唯一讓你花了錢，卻變得更富有的事物"</p>
                 </div>
 
             </main>
 
             <button @click="onFabClick"
-                class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40">
+                :class="currentView === 'dashboard' && trips.length > 0 ? 'bottom-[195px]' : 'bottom-24'"
+                class="absolute right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition-all duration-300 z-40">
                 <i class="fas fa-plus"></i>
             </button>
+
+            <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
+                    <i class="fas fa-map-marked-alt text-xl mb-0.5 transform transition" :class="activeTab === 'schedule' ? 'scale-110' : ''"></i>
+                    <span class="text-[10px] font-bold tracking-wide">行程</span>
+                </button>
+                <div class="w-px h-8 bg-gray-100"></div>
+                <button @click="activeTab = 'expense'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'expense' ? 'text-secondary' : 'text-gray-300 hover:text-gray-500'">
+                    <i class="fas fa-wallet text-xl mb-0.5 transform transition" :class="activeTab === 'expense' ? 'scale-110' : ''"></i>
+                    <span class="text-[10px] font-bold tracking-wide">分帳</span>
+                </button>
+            </nav>
+
+            <Transition name="slide-up">
+                <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="showItemModal = false">
+                    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl h-[85vh] sm:h-auto flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-gray-800">{{ isEditing ? '編輯' : '新增' }} {{ activeTab === 'schedule' ? '行程' : '支出' }}</h3>
+                            <button @click="showItemModal = false" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto no-scrollbar space-y-5">
+                            <div v-if="activeTab === 'schedule'" class="space-y-4">
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">時間</label><input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-lg font-mono"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">活動</label><input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">地點</label><div class="relative"><i class="fas fa-map-pin absolute left-4 top-4 text-gray-400"></i><input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary"></div></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label><textarea v-model="form.note" rows="3" placeholder="票券資訊..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none"></textarea></div>
+                            </div>
+                            <div v-if="activeTab === 'expense'" class="space-y-5">
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label><div class="relative"><span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span><input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-14 outline-none focus:border-secondary text-2xl font-mono font-bold"></div></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label><input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label><div class="grid grid-cols-3 gap-2"><button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button></div></div>
+                            </div>
+                        </div>
+                        <button @click="submitItem" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
+                            <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>{{ isEditing ? '儲存變更' : '確認新增' }}
+                        </button>
+                    </div>
+                </div>
+            </Transition>
 
             <Transition name="fade">
                 <div v-if="showTripModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showTripModal = false">
@@ -488,17 +531,14 @@
                 const loading = ref(true);
                 const loginError = ref('');
                 
-                // Views: 'dashboard' (list) or 'planner' (detail)
                 const currentView = ref('dashboard');
                 const trips = ref([]);
                 const currentTrip = ref({});
                 
-                // Tabs inside planner
                 const activeTab = ref('schedule');
                 const days = ref([]);
                 const currentDayIndex = ref(0);
                 
-                // Modals
                 const showItemModal = ref(false);
                 const showTripModal = ref(false);
                 const showUserMenu = ref(false); 
@@ -514,24 +554,20 @@
                 const errorMessage = ref('');
                 const copyToast = ref('');
                 
-                // Forms & State
                 const activeRegion = ref('東');
                 const isEditing = ref(false);
                 const submitting = ref(false);
                 const currentEditId = ref(null);
                 
-                // Data Containers
                 const schedule = ref([]);
                 const expenses = ref([]);
                 const settings = ref({});
 
-                // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
                 const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '', budget: 0 }); // Added budget
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
 
-                // Listeners
                 let unsubTrips = null;
                 let unsubSchedule = null;
                 let unsubExpenses = null;
@@ -594,12 +630,6 @@
                     } catch (error) { showAlert("登入失敗: " + error.message); }
                 };
 
-                const confirmLogout = async () => {
-                    await signOut(auth);
-                    showLogoutConfirm.value = false;
-                    showUserMenu.value = false;
-                };
-
                 const copyUid = async () => {
                     if (user.value && user.value.uid) {
                         try {
@@ -612,7 +642,6 @@
                     }
                 };
 
-                // --- 1. Global Data (Trips List & User Settings) ---
                 const fetchGlobalData = () => {
                     const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                     unsubSettings = onSnapshot(settingsRef, (docSnap) => {
@@ -629,7 +658,6 @@
                     });
                 };
 
-                // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
                         tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '', budget: 0 };
@@ -670,11 +698,9 @@
                         try {
                             const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
                             if (currentTrip.value.id) {
-                                // If editing existing trip, check if reducing days needs cleanup
                                 if (newDays.length < days.value.length) {
                                     const eventsToDelete = schedule.value.filter(e => e.dayIndex >= newDays.length);
                                     if (eventsToDelete.length > 0) {
-                                        // Delete batch
                                         const batch = writeBatch(db);
                                         const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
                                         eventsToDelete.forEach(ev => {
@@ -693,7 +719,6 @@
                         } catch (e) { showAlert("儲存失敗: " + e.message); }
                     };
 
-                    // Check conflict logic
                     if (currentTrip.value.id && newDays.length < days.value.length) {
                         const hasConflict = schedule.value.some(e => e.dayIndex >= newDays.length);
                         if (hasConflict) {
@@ -702,7 +727,6 @@
                         }
                     }
 
-                    // No conflict or new trip, just save
                     performSave();
                 };
 
@@ -746,7 +770,6 @@
                     showTripModal.value = true;
                 };
 
-                // --- 3. Profile Actions ---
                 const openEditProfile = () => {
                     profileForm.value = {
                         displayName: settings.value.displayName || user.value.displayName || '',
@@ -774,7 +797,6 @@
                     } catch (e) { showAlert("更新失敗: " + e.message); }
                 };
 
-                // --- 4. Schedule/Expense Items Logic ---
                 const openAddItemModal = () => {
                     isEditing.value = false;
                     currentEditId.value = null;
@@ -818,7 +840,6 @@
                     } catch (e) { showAlert("刪除失敗"); }
                 };
 
-                // --- Helpers ---
                 const selectDestination = (country) => {
                     tripForm.value.destination = country.name;
                     tripForm.value.currency = country.currency;
@@ -832,7 +853,6 @@
                     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
                 };
 
-                // --- Computeds ---
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
                 const sortedEvents = computed(() => [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time)));
                 const sortedExpenses = computed(() => [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date)));
@@ -842,7 +862,6 @@
                     return Math.round(totalExpense.value / currentTrip.value.companions.length);
                 });
                 
-                // Budget Computed Properties
                 const budgetPercentage = computed(() => {
                     if (!currentTrip.value.budget || currentTrip.value.budget <= 0) return 0;
                     return (totalExpense.value / currentTrip.value.budget) * 100;
@@ -858,34 +877,6 @@
                     if (p >= 80) return 'bg-red-400';
                     if (p >= 50) return 'bg-yellow-400';
                     return 'bg-green-400';
-                });
-
-                // New: User Stats Computed
-                const userStats = computed(() => {
-                    const myTrips = trips.value;
-                    const totalTrips = myTrips.length;
-                    
-                    let totalDays = 0;
-                    const places = new Set();
-
-                    myTrips.forEach(t => {
-                        // Calculate days if dates exist
-                        if (t.startDate && t.endDate) {
-                            const s = new Date(t.startDate);
-                            const e = new Date(t.endDate);
-                            const diff = Math.abs(e - s);
-                            const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
-                            totalDays += days;
-                        }
-                        // Add unique destination
-                        if (t.destination) places.add(t.destination);
-                    });
-
-                    return {
-                        totalTrips,
-                        totalDays,
-                        uniquePlaces: places.size
-                    };
                 });
 
                 const debts = computed(() => {
@@ -917,12 +908,38 @@
                     return result;
                 });
 
+                // New: User Stats Computed
+                const userStats = computed(() => {
+                    const myTrips = trips.value;
+                    const totalTrips = myTrips.length;
+                    
+                    let totalDays = 0;
+                    const places = new Set();
+
+                    myTrips.forEach(t => {
+                        if (t.startDate && t.endDate) {
+                            const s = new Date(t.startDate);
+                            const e = new Date(t.endDate);
+                            const diff = Math.abs(e - s);
+                            const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+                            totalDays += days;
+                        }
+                        if (t.destination) places.add(t.destination);
+                    });
+
+                    return {
+                        totalTrips,
+                        totalDays,
+                        uniquePlaces: places.size
+                    };
+                });
+
                 return {
                     user, loading, loginError,
                     currentView, trips, currentTrip,
                     activeTab, days, currentDayIndex,
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
-                    showConfirmModal, confirmMessage, executeConfirm, confirmAction, // New confirm refs
+                    showConfirmModal, confirmMessage, executeConfirm, confirmAction,
                     showErrorModal, errorMessage, copyToast,
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
