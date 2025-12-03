@@ -358,7 +358,7 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
                                 <div @click="showCompanionManager = true" class="cursor-pointer group">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單 (逗號分隔)</label>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單</label>
                                     <div class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex justify-between items-center group-hover:border-primary transition">
                                         <span class="text-gray-800 truncate">{{ (tripForm.companions || []).join(', ') || '無' }}</span>
                                         <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
