@@ -607,9 +607,24 @@
                     if (days.value.length === 0) days.value = ['Day 1'];
 
                     const tripDocRef = doc(db, 'artifacts', appId, 'trips', trip.id);
+                    
+                    // FIXED: Listen to the trip itself for LIVE member updates
                     unsubTripMetadata = onSnapshot(tripDocRef, (docSnap) => {
-                        if (docSnap.exists()) { currentTrip.value = { id: trip.id, ...docSnap.data() }; }
+                        if (!docSnap.exists()) {
+                            showAlert("此旅程已被刪除");
+                            exitTrip();
+                            return;
+                        }
+                        const data = docSnap.data();
+                        // 檢查自己是否還在成員名單中
+                        if (!data.memberUids || !data.memberUids.includes(user.value.uid)) {
+                            showAlert("您已被移出此旅程"); // Show message
+                            exitTrip(); // Go back to dashboard immediately
+                            return;
+                        }
+                        currentTrip.value = { id: trip.id, ...data };
                     });
+
                     unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (s) => schedule.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
                     unsubExpenses = onSnapshot(collection(tripDocRef, 'expenses'), (s) => expenses.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
                 };
