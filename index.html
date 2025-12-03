@@ -264,7 +264,7 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label><textarea v-model="form.note" rows="3" placeholder="票券資訊..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none"></textarea></div>
                             </div>
                             <div v-if="activeTab === 'expense'" class="space-y-5">
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label><div class="relative"><span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span><input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-secondary text-2xl font-mono font-bold"></div></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label><div class="relative"><span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span><input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-14 outline-none focus:border-secondary text-2xl font-mono font-bold"></div></div>
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label><input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary"></div>
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label><div class="grid grid-cols-3 gap-2"><button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button></div></div>
                             </div>
@@ -285,7 +285,7 @@
                         </div>
                         <div class="space-y-4 mb-6">
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">目的地</label>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">目的地</label>
                                 <div class="relative">
                                     <input readonly @click="showDestinationModal = true" v-model="tripForm.destination" type="text" placeholder="點擊選擇" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary cursor-pointer pr-10">
                                     <i class="fas fa-chevron-down absolute right-3 top-4 text-gray-400 text-xs pointer-events-none"></i>
@@ -293,7 +293,7 @@
                             </div>
                             
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅遊日期</label>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">旅遊日期</label>
                                 <div class="flex items-center gap-2">
                                     <input v-model="tripForm.startDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary text-sm">
                                     <span class="text-gray-400 font-bold">-</span>
@@ -302,16 +302,11 @@
                             </div>
 
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label>
-                                <div class="flex gap-2">
-                                    <input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                                    <button @click="tripForm.currency='NT$'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">NT$</button>
-                                    <button @click="tripForm.currency='¥'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">¥</button>
-                                    <button @click="tripForm.currency='$'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">$</button>
-                                </div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">貨幣符號</label>
+                                <input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單 (逗號分隔)</label>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">旅伴名單 (逗號分隔)</label>
                                 <input v-model="tripForm.companions" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
                             </div>
                         </div>
@@ -475,7 +470,6 @@
 
                 // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                // Updated: Added startDate and endDate
                 const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '' });
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
@@ -553,7 +547,6 @@
                 // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
-                        // Updated: Reset startDate and endDate
                         tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '' };
                         currentTrip.value = {}; 
                         showTripModal.value = true;
@@ -570,7 +563,6 @@
                         destination: tripForm.value.destination,
                         currency: tripForm.value.currency,
                         companions: companionsArr.length ? companionsArr : ['我'],
-                        // Updated: Save dates
                         startDate: tripForm.value.startDate,
                         endDate: tripForm.value.endDate,
                         updatedAt: new Date().toISOString()
@@ -617,7 +609,6 @@
                         destination: currentTrip.value.destination,
                         currency: currentTrip.value.currency,
                         companions: currentTrip.value.companions.join(', '),
-                        // Updated: Load existing dates
                         startDate: currentTrip.value.startDate || '',
                         endDate: currentTrip.value.endDate || ''
                     };
