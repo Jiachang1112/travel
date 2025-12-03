@@ -478,18 +478,26 @@
                             // Init default settings if not exists
                             setDoc(settingsRef, settings.value);
                         }
+                    }, (error) => {
+                        console.error("Settings snapshot error:", error);
+                        // Optional: show alert or silent fail
                     });
 
                     // 2. Schedule
                     const scheduleRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'schedule');
                     unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
                         schedule.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    }, (error) => {
+                        console.error("Schedule snapshot error:", error);
+                        alert("讀取行程失敗，請檢查資料庫權限 (Rules): " + error.message);
                     });
 
                     // 3. Expenses
                     const expensesRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'expenses');
                     unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
                         expenses.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    }, (error) => {
+                        console.error("Expenses snapshot error:", error);
                     });
                 };
 
