@@ -110,9 +110,9 @@
                 </div>
             </header>
 
-            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50">
+            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50 flex flex-col">
                 
-                <div v-if="currentView === 'dashboard'" class="space-y-4">
+                <div v-if="currentView === 'dashboard'" class="space-y-4 flex-1">
                     <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
                         <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
                         <p>還沒有任何旅程</p>
@@ -140,6 +140,36 @@
                             <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
                         </div>
                     </div>
+
+                    <div v-if="trips.length > 0" class="mt-6 mb-20">
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden">
+                            <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl">
+                                <i class="fas fa-plane-departure"></i>
+                            </div>
+                            
+                            <h3 class="text-sm font-bold opacity-90 mb-4 flex items-center">
+                                <i class="fas fa-passport mr-2"></i> 旅遊生涯統計
+                            </h3>
+                            
+                            <div class="flex justify-between items-center relative z-10">
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold">{{ userStats.totalTrips }}</p>
+                                    <p class="text-[10px] opacity-75">總旅程</p>
+                                </div>
+                                <div class="w-px h-8 bg-white/20"></div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold">{{ userStats.totalDays }}</p>
+                                    <p class="text-[10px] opacity-75">總天數</p>
+                                </div>
+                                <div class="w-px h-8 bg-white/20"></div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold">{{ userStats.uniquePlaces }}</p>
+                                    <p class="text-[10px] opacity-75">探索地點</p>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-center text-xs text-gray-300 mt-3 italic">"旅行是唯一讓你花了錢，卻變得更富有的事物"</p>
+                    </div>
                 </div>
 
                 <div v-else-if="currentView === 'planner'">
@@ -151,7 +181,7 @@
                                 class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
                                 Day {{ index + 1 }}
                             </button>
-                            </div>
+                        </div>
 
                         <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2 pb-20">
                             <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
@@ -274,45 +304,6 @@
                 class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40">
                 <i class="fas fa-plus"></i>
             </button>
-
-            <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
-                <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
-                    <i class="fas fa-map-marked-alt text-xl mb-0.5 transform transition" :class="activeTab === 'schedule' ? 'scale-110' : ''"></i>
-                    <span class="text-[10px] font-bold tracking-wide">行程</span>
-                </button>
-                <div class="w-px h-8 bg-gray-100"></div>
-                <button @click="activeTab = 'expense'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'expense' ? 'text-secondary' : 'text-gray-300 hover:text-gray-500'">
-                    <i class="fas fa-wallet text-xl mb-0.5 transform transition" :class="activeTab === 'expense' ? 'scale-110' : ''"></i>
-                    <span class="text-[10px] font-bold tracking-wide">分帳</span>
-                </button>
-            </nav>
-
-            <Transition name="slide-up">
-                <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="showItemModal = false">
-                    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl h-[85vh] sm:h-auto flex flex-col">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-bold text-gray-800">{{ isEditing ? '編輯' : '新增' }} {{ activeTab === 'schedule' ? '行程' : '支出' }}</h3>
-                            <button @click="showItemModal = false" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="flex-1 overflow-y-auto no-scrollbar space-y-5">
-                            <div v-if="activeTab === 'schedule'" class="space-y-4">
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">時間</label><input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-lg font-mono"></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">活動</label><input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">地點</label><div class="relative"><i class="fas fa-map-pin absolute left-4 top-4 text-gray-400"></i><input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary"></div></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label><textarea v-model="form.note" rows="3" placeholder="票券資訊..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none"></textarea></div>
-                            </div>
-                            <div v-if="activeTab === 'expense'" class="space-y-5">
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label><div class="relative"><span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span><input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-14 outline-none focus:border-secondary text-2xl font-mono font-bold"></div></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label><input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary"></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label><div class="grid grid-cols-3 gap-2"><button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button></div></div>
-                            </div>
-                        </div>
-                        <button @click="submitItem" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
-                            <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>{{ isEditing ? '儲存變更' : '確認新增' }}
-                        </button>
-                    </div>
-                </div>
-            </Transition>
 
             <Transition name="fade">
                 <div v-if="showTripModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showTripModal = false">
@@ -497,14 +488,17 @@
                 const loading = ref(true);
                 const loginError = ref('');
                 
+                // Views: 'dashboard' (list) or 'planner' (detail)
                 const currentView = ref('dashboard');
                 const trips = ref([]);
                 const currentTrip = ref({});
                 
+                // Tabs inside planner
                 const activeTab = ref('schedule');
                 const days = ref([]);
                 const currentDayIndex = ref(0);
                 
+                // Modals
                 const showItemModal = ref(false);
                 const showTripModal = ref(false);
                 const showUserMenu = ref(false); 
@@ -520,20 +514,24 @@
                 const errorMessage = ref('');
                 const copyToast = ref('');
                 
+                // Forms & State
                 const activeRegion = ref('東');
                 const isEditing = ref(false);
                 const submitting = ref(false);
                 const currentEditId = ref(null);
                 
+                // Data Containers
                 const schedule = ref([]);
                 const expenses = ref([]);
                 const settings = ref({});
 
+                // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '', budget: 0 });
+                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '', budget: 0 }); // Added budget
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
 
+                // Listeners
                 let unsubTrips = null;
                 let unsubSchedule = null;
                 let unsubExpenses = null;
@@ -560,6 +558,7 @@
                     });
                 });
 
+                // Helper to trigger custom error modal
                 const showAlert = (msg) => {
                     errorMessage.value = msg;
                     showErrorModal.value = true;
@@ -595,6 +594,12 @@
                     } catch (error) { showAlert("登入失敗: " + error.message); }
                 };
 
+                const confirmLogout = async () => {
+                    await signOut(auth);
+                    showLogoutConfirm.value = false;
+                    showUserMenu.value = false;
+                };
+
                 const copyUid = async () => {
                     if (user.value && user.value.uid) {
                         try {
@@ -607,6 +612,7 @@
                     }
                 };
 
+                // --- 1. Global Data (Trips List & User Settings) ---
                 const fetchGlobalData = () => {
                     const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                     unsubSettings = onSnapshot(settingsRef, (docSnap) => {
@@ -623,6 +629,7 @@
                     });
                 };
 
+                // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
                         tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '', budget: 0 };
@@ -655,7 +662,7 @@
                         companions: companionsArr.length ? companionsArr : ['我'],
                         startDate: tripForm.value.startDate,
                         endDate: tripForm.value.endDate,
-                        budget: tripForm.value.budget || 0,
+                        budget: tripForm.value.budget || 0, // Save budget
                         updatedAt: new Date().toISOString()
                     };
 
@@ -739,6 +746,7 @@
                     showTripModal.value = true;
                 };
 
+                // --- 3. Profile Actions ---
                 const openEditProfile = () => {
                     profileForm.value = {
                         displayName: settings.value.displayName || user.value.displayName || '',
@@ -755,15 +763,18 @@
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         });
+                        
                         const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                         await setDoc(ref, {
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         }, { merge: true });
+
                         showProfileModal.value = false;
                     } catch (e) { showAlert("更新失敗: " + e.message); }
                 };
 
+                // --- 4. Schedule/Expense Items Logic ---
                 const openAddItemModal = () => {
                     isEditing.value = false;
                     currentEditId.value = null;
@@ -807,31 +818,21 @@
                     } catch (e) { showAlert("刪除失敗"); }
                 };
 
+                // --- Helpers ---
                 const selectDestination = (country) => {
                     tripForm.value.destination = country.name;
                     tripForm.value.currency = country.currency;
                     showDestinationModal.value = false;
                 };
                 
-                const addDay = async () => {
-                    // Logic to extend end date by 1 day
-                    if (!currentTrip.value.endDate) return showAlert("請先設定旅遊日期");
-                    const date = new Date(currentTrip.value.endDate);
-                    date.setDate(date.getDate() + 1);
-                    const newEndDate = date.toISOString().split('T')[0];
-                    
-                    const tripsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
-                    await updateDoc(tripsRef, { endDate: newEndDate });
-                    currentTrip.value.endDate = newEndDate;
-                    days.value = calculateDays(currentTrip.value.startDate, newEndDate);
-                };
-
+                const addDay = () => days.value.push(`Day ${days.value.length + 1}`);
                 const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => {
                     const d = new Date(iso);
                     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
                 };
 
+                // --- Computeds ---
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
                 const sortedEvents = computed(() => [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time)));
                 const sortedExpenses = computed(() => [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date)));
@@ -841,6 +842,7 @@
                     return Math.round(totalExpense.value / currentTrip.value.companions.length);
                 });
                 
+                // Budget Computed Properties
                 const budgetPercentage = computed(() => {
                     if (!currentTrip.value.budget || currentTrip.value.budget <= 0) return 0;
                     return (totalExpense.value / currentTrip.value.budget) * 100;
@@ -856,6 +858,34 @@
                     if (p >= 80) return 'bg-red-400';
                     if (p >= 50) return 'bg-yellow-400';
                     return 'bg-green-400';
+                });
+
+                // New: User Stats Computed
+                const userStats = computed(() => {
+                    const myTrips = trips.value;
+                    const totalTrips = myTrips.length;
+                    
+                    let totalDays = 0;
+                    const places = new Set();
+
+                    myTrips.forEach(t => {
+                        // Calculate days if dates exist
+                        if (t.startDate && t.endDate) {
+                            const s = new Date(t.startDate);
+                            const e = new Date(t.endDate);
+                            const diff = Math.abs(e - s);
+                            const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+                            totalDays += days;
+                        }
+                        // Add unique destination
+                        if (t.destination) places.add(t.destination);
+                    });
+
+                    return {
+                        totalTrips,
+                        totalDays,
+                        uniquePlaces: places.size
+                    };
                 });
 
                 const debts = computed(() => {
@@ -898,8 +928,8 @@
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
-                    budgetPercentage, remainingBudget, budgetColor,
-                    loginWithGoogle, copyUid,
+                    budgetPercentage, remainingBudget, budgetColor, userStats, // Added userStats
+                    loginWithGoogle, confirmLogout, copyUid,
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
