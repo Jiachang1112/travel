@@ -328,7 +328,13 @@
                                     </div>
                                 </div>
                             </div>
-                            <button @click="saveTrip" class="w-full py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存旅程' : '建立旅程' }}</button>
+                            
+                            <div class="flex gap-2">
+                                <button v-if="currentTrip.id" @click="deleteTrip" class="flex-1 py-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 font-bold text-sm flex items-center justify-center">
+                                    <i class="fas fa-trash-alt mr-2"></i>刪除旅程
+                                </button>
+                                <button @click="saveTrip" class="flex-[2] py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存變更' : '建立旅程' }}</button>
+                            </div>
                         </div>
 
                         <div v-else>
@@ -357,7 +363,7 @@
                                                     <p class="text-[10px] text-yellow-600 font-bold mt-0.5">等待回應中...</p>
                                                 </div>
                                             </div>
-                                            <button @click="removePending(email)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
+                                            <button v-if="isOwner" @click="removePending(email)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
                                         </div>
                                         
                                         <div v-for="(comp, index) in tripForm.companions" :key="index" class="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 flex justify-between items-center">
@@ -368,8 +374,9 @@
                                                 </div>
                                                 <p class="font-bold text-gray-800 text-sm">{{ comp }}</p>
                                             </div>
+                                            
                                             <div v-if="index === 0" class="bg-gray-200 text-gray-500 text-[10px] px-2 py-1 rounded font-bold tracking-wider">主辦人</div>
-                                            <button v-else @click="removeCompanion(index)" class="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
+                                            <button v-else-if="isOwner" @click="removeCompanion(index)" class="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
                                         </div>
                                     </div>
                                 </div>
@@ -448,6 +455,12 @@
                 let unsubSchedule = null;
                 let unsubExpenses = null;
                 let unsubSettings = null;
+
+                // Computed Owner Check
+                const isOwner = computed(() => {
+                    if (!currentTrip.value.memberUids || currentTrip.value.memberUids.length === 0) return true; // Default create mode
+                    return currentTrip.value.memberUids[0] === user.value.uid; // First member is owner
+                });
 
                 const initAuth = async () => { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { await signInAnonymously(auth); } } };
 
@@ -567,6 +580,24 @@
                     } else { performSave(); }
                 };
 
+                // NEW: Delete Trip Function
+                const deleteTrip = async () => {
+                    const doDelete = async () => {
+                        try {
+                            await deleteDoc(doc(db, 'artifacts', appId, 'trips', currentTrip.value.id));
+                            showTripModal.value = false;
+                            showConfirmModal.value = false;
+                            // Optimistic update
+                            trips.value = trips.value.filter(t => t.id !== currentTrip.value.id);
+                        } catch (e) {
+                            showAlert("刪除失敗: " + e.message);
+                        }
+                    };
+                    confirmMessage.value = "確定要刪除整個旅程嗎？所有資料將無法復原。";
+                    pendingAction.value = doDelete;
+                    showConfirmModal.value = true;
+                };
+
                 const enterTrip = (trip) => {
                     if (trip.isInvite) return;
                     currentTrip.value = trip;
@@ -597,7 +628,7 @@
                         destination: currentTrip.value.destination,
                         currency: currentTrip.value.currency,
                         companions: currentTrip.value.companions || [],
-                        members: currentTrip.value.members || [], // Load detailed members
+                        members: currentTrip.value.members || [], 
                         pendingEmails: currentTrip.value.pendingEmails || [],
                         startDate: currentTrip.value.startDate || '',
                         endDate: currentTrip.value.endDate || '',
@@ -676,10 +707,10 @@
                     await batch.commit();
                 };
 
-                // New Remove Logic using custom modal
+                // Updated remove logic with custom confirm modal
                 const removePending = async (email) => {
                     const doRemove = async () => {
-                         if(!currentTrip.value.id) {
+                        if(!currentTrip.value.id) {
                             tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
                         } else {
                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
@@ -688,17 +719,15 @@
                         }
                         showConfirmModal.value = false;
                     };
-
-                    confirmMessage.value = `確定取消對 ${email} 的邀請嗎？`;
+                    confirmMessage.value = `確定取消邀請 ${email} 嗎？`;
                     pendingAction.value = doRemove;
                     showConfirmModal.value = true;
                 };
 
                 const removeCompanion = async (index) => {
-                     const nameToRemove = tripForm.value.companions[index];
-                     
-                     const doRemove = async () => {
-                         if(!currentTrip.value.id) {
+                    const nameToRemove = tripForm.value.companions[index];
+                    const doRemove = async () => {
+                        if(!currentTrip.value.id) {
                             tripForm.value.companions.splice(index, 1);
                         } else {
                              const memberObj = (tripForm.value.members || []).find(m => m.name === nameToRemove);
@@ -714,11 +743,10 @@
                              tripForm.value.companions.splice(index, 1);
                         }
                         showConfirmModal.value = false;
-                     };
-
-                     confirmMessage.value = `確定移除成員 ${nameToRemove}？該成員將無法存取旅程。`;
-                     pendingAction.value = doRemove;
-                     showConfirmModal.value = true;
+                    };
+                    confirmMessage.value = `確定移除成員 ${nameToRemove}？該成員將無法存取旅程。`;
+                    pendingAction.value = doRemove;
+                    showConfirmModal.value = true;
                 };
 
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
@@ -765,7 +793,7 @@
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
                     addDay, openMap, formatDate,
-                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto
+                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner
                 };
             }
         }).mount('#app');
