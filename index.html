@@ -525,6 +525,7 @@
                         user.value = u;
                         loading.value = false;
                         if (u) {
+                            syncUserToDirectory(u); // Sync user for sharing
                             fetchGlobalData();
                         } else {
                             trips.value = [];
