@@ -229,7 +229,7 @@
                         </div>
 
                         <div v-if="sortedExpenses.length > 0" class="space-y-3">
-                            <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
+                            <div v-for="expense in sortedExpenses" :key="expense.id" @click="editExpense(expense)" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
                                         {{ expense.payer ? expense.payer.charAt(0) : '?' }}
@@ -241,7 +241,6 @@
                                 </div>
                                 <div class="text-right">
                                     <p class="font-bold font-mono text-gray-800">{{ currentTrip.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
-                                    <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
                                 </div>
                             </div>
                         </div>
@@ -279,26 +278,26 @@
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">日期 / 天數</label>
-                                        <select v-model="form.dayIndex" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary appearance-none">
+                                        <select v-model="form.dayIndex" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary appearance-none text-gray-900">
                                             <option v-for="(day, index) in days" :key="index" :value="index">{{ day }}</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">時間</label>
-                                        <input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-lg font-mono">
+                                        <input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-lg font-mono text-gray-900">
                                     </div>
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">活動名稱</label>
-                                    <input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary">
+                                    <input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-gray-900">
                                 </div>
                                 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預估金額 / 門票</label>
                                     <div class="relative">
                                         <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
-                                        <input v-model.number="form.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-primary font-mono">
+                                        <input v-model.number="form.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-primary font-mono text-gray-900">
                                     </div>
                                 </div>
 
@@ -306,24 +305,42 @@
                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">地點</label>
                                     <div class="relative">
                                         <i class="fas fa-map-pin absolute left-4 top-4 text-gray-400"></i>
-                                        <input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary">
+                                        <input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary text-gray-900">
                                     </div>
                                 </div>
                                 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label>
-                                    <textarea v-model="form.note" rows="3" placeholder="票券資訊、注意事項..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none"></textarea>
+                                    <textarea v-model="form.note" rows="3" placeholder="票券資訊、注意事項..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none text-gray-900"></textarea>
                                 </div>
                             </div>
 
                             <div v-if="activeTab === 'expense'" class="space-y-5">
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label><div class="relative"><span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span><input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-secondary text-2xl font-mono font-bold"></div></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label><input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary"></div>
-                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label><div class="grid grid-cols-3 gap-2"><button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button></div></div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
+                                        <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-secondary text-2xl font-mono font-bold text-gray-900">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label>
+                                    <input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary text-gray-900">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <button @click="submitItem" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
                             <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>{{ isEditing ? '儲存變更' : '確認新增' }}
+                        </button>
+
+                        <button v-if="isEditing" @click="requestDeleteItem" class="w-full mt-3 py-3.5 bg-red-50 text-red-500 rounded-2xl font-bold text-lg hover:bg-red-100 transition flex items-center justify-center">
+                            <i class="fas fa-trash-alt mr-2"></i> 刪除此筆資料
                         </button>
                     </div>
                 </div>
@@ -358,7 +375,7 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
                                 <div @click="showCompanionManager = true" class="cursor-pointer group">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單</label>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單 (逗號分隔)</label>
                                     <div class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex justify-between items-center group-hover:border-primary transition">
                                         <span class="text-gray-800 truncate">{{ (tripForm.companions || []).join(', ') || '無' }}</span>
                                         <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
@@ -429,7 +446,45 @@
             <Transition name="fade"><div v-if="showUserMenu" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showUserMenu = false"><div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5"><div class="flex justify-end mb-2"><button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button></div><div class="flex flex-col items-center mb-6"><img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover"><h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3><p class="text-sm text-gray-400 font-mono">{{ user.email }}</p><div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID"><span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span><i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i></div><p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p></div><div class="flex flex-col gap-3"><button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2"><i class="fas fa-edit"></i> 編輯檔案</button><button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> 登出帳號</button></div></div></div></Transition>
             <Transition name="fade"><div v-if="showConfirmModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false"><div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center"><div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-lg font-bold text-gray-800 mb-2">確認操作</h3><p class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</p><div class="flex gap-3"><button @click="showConfirmModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button><button @click="executeConfirm" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">確定</button></div></div></div></Transition>
             <Transition name="fade"><div v-if="showErrorModal" class="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showErrorModal = false"><div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center"><div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation"></i></div><h3 class="text-lg font-bold text-gray-800 mb-2">提示</h3><p class="text-sm text-gray-500 mb-6">{{ errorMessage }}</p><button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">確定</button></div></div></Transition>
-            <Transition name="fade"><div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false"><div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5"><div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3><button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button></div><div class="space-y-4 mb-6"><div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label><input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary"></div><div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label><input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary"></div></div><button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button></div></div></Transition>
+            
+            <Transition name="fade">
+                <div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3>
+                            <button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="flex flex-col items-center mb-6">
+                            <img :src="profileForm.photoURL || 'https://ui-avatars.com/api/?name=' + (profileForm.displayName || 'User')" class="w-24 h-24 rounded-full border-4 border-gray-50 shadow-md mb-4 object-cover bg-gray-100">
+                            
+                            <div class="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                                <button @click="activeProfileTab = 'upload'" :class="activeProfileTab === 'upload' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">📷 上傳圖片</button>
+                                <button @click="activeProfileTab = 'url'" :class="activeProfileTab === 'url' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">🔗 圖片連結</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label>
+                                <input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                            
+                            <div v-if="activeProfileTab === 'upload'">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">選擇照片</label>
+                                <input type="file" accept="image/*" @change="handleFileUpload" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100 cursor-pointer">
+                                <p class="text-[10px] text-gray-400 mt-1">* 圖片將自動壓縮以節省空間</p>
+                            </div>
+
+                            <div v-else>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label>
+                                <input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button>
+                    </div>
+                </div>
+            </Transition>
 
         </template>
     </div>
@@ -481,6 +536,7 @@
                 const expenses = ref([]);
                 const settings = ref({});
                 const profileForm = ref({ displayName: '', photoURL: '' });
+                const activeProfileTab = ref('upload'); // 新增：控制上傳或連結
                 const tripForm = ref({ destination: '', currency: '', companions: [], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
                 // Include dayIndex for schedule item editing
                 const form = ref({ dayIndex: 0, time: '10:00', title: '', location: '', note: '', amount: '' });
@@ -512,8 +568,28 @@
 
                 const showAlert = (msg) => { errorMessage.value = msg; showErrorModal.value = true; };
                 const confirmAction = (actionType, payload) => {
-                    if (actionType === 'logout') { confirmMessage.value = '您確定要登出目前的帳號嗎？'; pendingAction.value = async () => { await signOut(auth); showUserMenu.value = false; }; } 
-                    else if (actionType === 'reduce_days') { confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？'; pendingAction.value = payload; }
+                    if (actionType === 'logout') { 
+                        confirmMessage.value = '您確定要登出目前的帳號嗎？'; 
+                        pendingAction.value = async () => { await signOut(auth); showUserMenu.value = false; }; 
+                    } 
+                    else if (actionType === 'reduce_days') { 
+                        confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？'; 
+                        pendingAction.value = payload; 
+                    }
+                    // 修改3: 新增刪除 Item 的確認邏輯
+                    else if (actionType === 'delete_item_modal') {
+                        confirmMessage.value = '確定要刪除這筆資料嗎？此操作無法復原。';
+                        pendingAction.value = async () => {
+                            const type = activeTab.value === 'schedule' ? 'schedule' : 'expenses';
+                            const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            try { 
+                                await deleteDoc(doc(tripDocRef, type, currentEditId.value)); 
+                                showItemModal.value = false;
+                            } catch (e) { 
+                                showAlert("刪除失敗"); 
+                            }
+                        };
+                    }
                     showConfirmModal.value = true;
                 };
                 const executeConfirm = async () => { if (pendingAction.value) { await pendingAction.value(); pendingAction.value = null; } showConfirmModal.value = false; };
@@ -699,8 +775,80 @@
                     return mem ? mem.photo : null;
                 };
 
-                const openEditProfile = () => { profileForm.value = { displayName: settings.value.displayName || user.value.displayName || '', photoURL: settings.value.photoURL || user.value.photoURL || '' }; showUserMenu.value = false; showProfileModal.value = true; };
-                const saveProfile = async () => { if (!user.value) return; try { await updateProfile(user.value, { displayName: profileForm.value.displayName, photoURL: profileForm.value.photoURL }); const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config'); await setDoc(ref, { displayName: profileForm.value.displayName, photoURL: profileForm.value.photoURL, email: user.value.email }, { merge: true }); showProfileModal.value = false; } catch (e) { showAlert("更新失敗: " + e.message); } };
+                const openEditProfile = () => { 
+                    profileForm.value = { 
+                        displayName: settings.value.displayName || user.value.displayName || '', 
+                        photoURL: settings.value.photoURL || user.value.photoURL || '' 
+                    }; 
+                    activeProfileTab.value = 'upload'; // Default to upload
+                    showUserMenu.value = false; 
+                    showProfileModal.value = true; 
+                };
+
+                const handleFileUpload = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    // Limit file size (e.g., 2MB initial check)
+                    if (file.size > 10 * 1024 * 1024) {
+                        showAlert("圖片檔案過大，請選擇小於 10MB 的圖片");
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            
+                            // Resize image (Max width 300px for avatar is sufficient)
+                            const maxWidth = 300;
+                            const scale = maxWidth / img.width;
+                            const width = maxWidth;
+                            const height = img.height * scale;
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            // Compress to JPEG with 0.7 quality
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                            profileForm.value.photoURL = dataUrl;
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                };
+
+                const saveProfile = async () => {
+                    if (!user.value) return;
+                    try {
+                        // 1. Determine if it's a URL or Base64
+                        const isBase64 = profileForm.value.photoURL && profileForm.value.photoURL.startsWith('data:');
+
+                        // 2. Prepare Auth Profile Update (Only name, or URL if it's short)
+                        const authUpdate = { displayName: profileForm.value.displayName };
+                        if (!isBase64) {
+                            // If it's a normal URL link, update Auth too
+                            authUpdate.photoURL = profileForm.value.photoURL;
+                        }
+                        await updateProfile(user.value, authUpdate);
+
+                        // 3. Save everything to Firestore (Settings) - This handles the big Base64 string
+                        const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                        await setDoc(ref, {
+                            displayName: profileForm.value.displayName,
+                            photoURL: profileForm.value.photoURL, // Base64 goes here
+                            email: user.value.email
+                        }, { merge: true });
+
+                        showProfileModal.value = false;
+                    } catch (e) {
+                        console.error(e);
+                        showAlert("更新失敗: " + e.message);
+                    }
+                };
                 
                 const openAddItemModal = () => { 
                     isEditing.value = false; 
@@ -710,6 +858,14 @@
                     showItemModal.value = true; 
                 };
                 
+                // Added new helper method
+                const editExpense = (expense) => {
+                      isEditing.value = true;
+                      currentEditId.value = expense.id;
+                      expenseForm.value = { ...expense };
+                      showItemModal.value = true;
+                };
+
                 const editEvent = (event) => { 
                     isEditing.value = true; 
                     currentEditId.value = event.id; 
@@ -734,22 +890,36 @@
                         } else {
                             if (!expenseForm.value.title || !expenseForm.value.amount) throw new Error("資料不完整");
                             const coll = collection(tripDocRef, 'expenses');
-                            const data = { ...expenseForm.value, date: new Date().toISOString() };
-                            await addDoc(coll, data);
+                            const data = { ...expenseForm.value }; // Use existing date if editing
+
+                            if (isEditing.value && currentEditId.value) {
+                                await updateDoc(doc(coll, currentEditId.value), data);
+                            } else {
+                                data.date = new Date().toISOString();
+                                await addDoc(coll, data);
+                            }
                         }
                         showItemModal.value = false;
                     } catch (e) { showAlert(e.message); } finally { submitting.value = false; }
                 };
 
+                // 修改4: 新增呼叫刪除確認的函式
+                const requestDeleteItem = () => {
+                    confirmAction('delete_item_modal');
+                };
+
                 const deleteItem = async (type, id) => {
-                    if (!confirm('確定刪除？')) return;
+                    // 如果不是透過 modal 呼叫的 (例如列表上的小垃圾桶)，則使用原生 confirm
+                    if (!showItemModal.value) {
+                        if (!confirm('確定刪除？')) return;
+                    }
                     const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                     try { await deleteDoc(doc(tripDocRef, type === 'schedule' ? 'schedule' : 'expenses', id)); } catch (e) { showAlert("刪除失敗"); }
                 };
 
                 const selectDestination = (c) => { tripForm.value.destination = c.name; tripForm.value.currency = c.currency; showDestinationModal.value = false; };
                 const addDay = async () => { if (!currentTrip.value.endDate) return showAlert("請先設定旅遊日期"); const date = new Date(currentTrip.value.endDate); date.setDate(date.getDate() + 1); const newEndDate = date.toISOString().split('T')[0]; const tripsRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id); await updateDoc(tripsRef, { endDate: newEndDate }); currentTrip.value.endDate = newEndDate; days.value = calculateDays(currentTrip.value.startDate, newEndDate); };
-                const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+                const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => { const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; };
 
                 const sendInvite = async () => {
@@ -868,7 +1038,8 @@
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
                     addDay, openMap, formatDate,
-                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner
+                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
+                    activeProfileTab, handleFileUpload // 新增的 Return
                 };
             }
         }).mount('#app');
