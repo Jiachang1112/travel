@@ -59,7 +59,16 @@
 
     <div id="app" class="h-full flex flex-col w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative">
 
-        <div v-if="!user" class="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center">
+        <Transition name="fade">
+            <div v-if="loading" class="absolute inset-0 z-[100] bg-white flex items-center justify-center">
+                <div class="flex items-center gap-4 px-6 py-4 bg-white rounded-2xl">
+                    <div class="w-10 h-10 rounded-full border-[4px] border-t-indigo-500 border-r-pink-500 border-b-yellow-500 border-l-blue-400 animate-spin"></div>
+                    <span class="text-gray-600 font-bold tracking-widest text-lg">正在載入</span>
+                </div>
+            </div>
+        </Transition>
+
+        <div v-if="!user && !loading" class="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center">
             <div class="w-24 h-24 bg-gradient-to-tr from-primary to-purple-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl transform rotate-3">
                 <i class="fas fa-globe-americas text-4xl text-white"></i>
             </div>
@@ -73,7 +82,7 @@
             <p v-if="loginError" class="text-red-500 text-sm mt-4">{{ loginError }}</p>
         </div>
 
-        <template v-else>
+        <template v-else-if="user && !loading">
             
             <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0">
                 <div class="flex items-center gap-2">
@@ -85,7 +94,6 @@
                         <h1 class="text-lg font-bold text-gray-800 flex items-center">
                             <span v-if="currentView === 'dashboard'">我的旅程 🧳</span>
                             <span v-else>{{ currentTrip.destination || '未命名旅程' }}</span>
-                            <span v-if="loading" class="ml-2 loader w-4 h-4 border-2"></span>
                         </h1>
                     </div>
                 </div>
@@ -105,7 +113,7 @@
             <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50">
                 
                 <div v-if="currentView === 'dashboard'" class="space-y-4">
-                    <div v-if="trips.length === 0 && !loading" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                    <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
                         <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
                         <p>還沒有任何旅程</p>
                         <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
@@ -699,7 +707,7 @@
                 };
                 
                 const addDay = () => days.value.push(`Day ${days.value.length + 1}`);
-                const openMap = (loc) => window.open(`http://googleusercontent.com/maps.google.com/0{encodeURIComponent(loc)}`, '_blank');
+                const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => {
                     const d = new Date(iso);
                     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
