@@ -394,6 +394,21 @@
             </Transition>
 
             <Transition name="fade">
+                <div v-if="showErrorModal" class="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showErrorModal = false">
+                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl">
+                            <i class="fas fa-exclamation"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">提示</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ errorMessage }}</p>
+                        <button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">
+                            確定
+                        </button>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
                 <div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false">
                     <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
                          <div class="flex justify-between items-center mb-6">
@@ -467,6 +482,8 @@
                 const showProfileModal = ref(false);
                 const showDestinationModal = ref(false);
                 const showLogoutConfirm = ref(false);
+                const showErrorModal = ref(false); // New Error Modal State
+                const errorMessage = ref('');      // New Error Message State
                 const copyToast = ref('');
                 
                 // Forms & State
@@ -513,12 +530,18 @@
                     });
                 });
 
+                // Helper to trigger custom error modal
+                const showAlert = (msg) => {
+                    errorMessage.value = msg;
+                    showErrorModal.value = true;
+                };
+
                 const loginWithGoogle = async () => {
                     try {
                         loginError.value = '';
                         if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } 
                         else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); }
-                    } catch (error) { loginError.value = "登入失敗: " + error.message; }
+                    } catch (error) { showAlert("登入失敗: " + error.message); }
                 };
 
                 const confirmLogout = async () => {
@@ -569,7 +592,7 @@
 
                 const saveTrip = async () => {
                     const companionsArr = tripForm.value.companions.split(/[,，]/).map(u => u.trim()).filter(u => u);
-                    if (!tripForm.value.destination) return alert('請輸入目的地');
+                    if (!tripForm.value.destination) return showAlert('請輸入目的地');
                     
                     const tripData = {
                         destination: tripForm.value.destination,
@@ -589,7 +612,7 @@
                             await addDoc(tripsRef, tripData);
                         }
                         showTripModal.value = false;
-                    } catch (e) { alert("儲存失敗"); }
+                    } catch (e) { showAlert("儲存失敗"); }
                 };
 
                 const enterTrip = (trip) => {
@@ -652,7 +675,7 @@
                         }, { merge: true });
 
                         showProfileModal.value = false;
-                    } catch (e) { alert("更新失敗: " + e.message); }
+                    } catch (e) { showAlert("更新失敗: " + e.message); }
                 };
 
                 // --- 4. Schedule/Expense Items Logic ---
@@ -688,7 +711,7 @@
                             await addDoc(coll, data);
                         }
                         showItemModal.value = false;
-                    } catch (e) { alert(e.message); } finally { submitting.value = false; }
+                    } catch (e) { showAlert(e.message); } finally { submitting.value = false; }
                 };
 
                 const deleteItem = async (type, id) => {
@@ -696,7 +719,7 @@
                     const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
                     try {
                         await deleteDoc(doc(tripDocRef, type === 'schedule' ? 'schedule' : 'expenses', id));
-                    } catch (e) { alert("刪除失敗"); }
+                    } catch (e) { showAlert("刪除失敗"); }
                 };
 
                 // --- Helpers ---
@@ -756,7 +779,7 @@
                     currentView, trips, currentTrip,
                     activeTab, days, currentDayIndex,
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
-                    showLogoutConfirm, copyToast,
+                    showLogoutConfirm, showErrorModal, errorMessage, copyToast,
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
