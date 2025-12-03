@@ -295,61 +295,85 @@
             <Transition name="fade">
                 <div v-if="showTripModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showTripModal = false">
                     <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5 max-h-[90vh] overflow-y-auto">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-lg font-bold text-gray-800">{{ currentTrip.id ? '管理旅伴' : '建立新旅程' }}</h3>
-                            <button @click="showTripModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        
+                        <div v-if="!showCompanionManager">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-xl font-bold text-gray-800">{{ currentTrip.id ? '旅程設定' : '建立新旅程' }}</h3>
+                                <button @click="showTripModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="space-y-5 mb-6">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">目的地</label>
+                                    <div class="relative">
+                                        <input readonly @click="showDestinationModal = true" v-model="tripForm.destination" type="text" placeholder="點擊選擇" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary cursor-pointer pr-10">
+                                        <i class="fas fa-chevron-down absolute right-3 top-4 text-gray-400 text-xs pointer-events-none"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅遊日期</label>
+                                    <div class="flex items-center gap-2">
+                                        <input v-model="tripForm.startDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-sm">
+                                        <span class="text-gray-400 font-bold">-</span>
+                                        <input v-model="tripForm.endDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-sm">
+                                    </div>
+                                </div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label><input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
+                                
+                                <div @click="showCompanionManager = true" class="cursor-pointer group">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單</label>
+                                    <div class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex justify-between items-center group-hover:border-primary transition">
+                                        <span class="text-gray-800 truncate">{{ (tripForm.companions || []).join(', ') || '無' }}</span>
+                                        <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <button @click="saveTrip" class="w-full py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存變更' : '建立旅程' }}</button>
                         </div>
-                        <div class="space-y-4 mb-6">
-                            <div v-if="!currentTrip.id">
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">目的地</label>
-                                <input readonly @click="showDestinationModal = true" v-model="tripForm.destination" type="text" placeholder="點擊選擇" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary cursor-pointer">
+
+                        <div v-else>
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-xl font-bold text-gray-800">管理旅伴</h3>
+                                <button @click="showCompanionManager = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
                             </div>
                             
-                            <div v-if="!currentTrip.id">
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">日期與預算</label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <input v-model="tripForm.startDate" type="date" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm">
-                                    <input v-model="tripForm.endDate" type="date" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm">
-                                    <input v-model="tripForm.currency" type="text" placeholder="貨幣" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm">
-                                    <input v-model.number="tripForm.budget" type="number" placeholder="預算" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm">
+                            <div class="space-y-6 mb-8">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">新增夥伴 (輸入 EMAIL)</label>
+                                    <div class="flex gap-2">
+                                        <input v-model="inviteEmail" type="email" placeholder="example@gmail.com" class="flex-1 bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-primary shadow-sm">
+                                        <button @click="sendInvite" class="bg-primary text-white px-5 rounded-lg text-sm font-bold hover:bg-indigo-600 shadow-md shadow-indigo-200 whitespace-nowrap">邀請</button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">新增夥伴 (輸入 EMAIL)</label>
-                                <div class="flex gap-2">
-                                    <input v-model="inviteEmail" type="email" placeholder="example@gmail.com" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-primary">
-                                    <button @click="sendInvite" class="bg-primary text-white px-4 rounded-lg text-sm font-bold hover:bg-indigo-600 shadow-lg shadow-indigo-200">邀請</button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">確認名單 / 邀請中</label>
-                                <div class="space-y-2">
-                                    <div v-for="email in tripForm.pendingEmails" :key="email" class="bg-yellow-50 border border-yellow-100 rounded-xl p-3 flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full bg-yellow-200 text-yellow-600 flex items-center justify-center text-sm"><i class="fas fa-envelope"></i></div>
-                                            <div>
-                                                <p class="font-bold text-gray-800 text-sm">{{ email }}</p>
-                                                <p class="text-[10px] text-yellow-600 font-bold">等待回應中...</p>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-3">確認名單 / 邀請中</label>
+                                    <div class="space-y-3">
+                                        <div v-for="email in tripForm.pendingEmails" :key="email" class="bg-yellow-50 border border-yellow-100 rounded-2xl p-3.5 flex justify-between items-center">
+                                            <div class="flex items-center gap-3.5">
+                                                <div class="w-9 h-9 rounded-full bg-yellow-200 text-yellow-600 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-envelope"></i></div>
+                                                <div class="overflow-hidden">
+                                                    <p class="font-bold text-gray-800 text-sm truncate w-32 sm:w-40">{{ email }}</p>
+                                                    <p class="text-[10px] text-yellow-600 font-bold mt-0.5">等待回應中...</p>
+                                                </div>
                                             </div>
+                                            <button @click="removePending(email)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
                                         </div>
-                                        <button @click="removePending(email)" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
-                                    </div>
-                                    
-                                    <div v-for="(comp, index) in tripForm.companions" :key="index" class="bg-gray-50 border border-gray-100 rounded-xl p-3 flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm">{{ comp.charAt(0) }}</div>
-                                            <p class="font-bold text-gray-800 text-sm">{{ comp }}</p>
+                                        
+                                        <div v-for="(comp, index) in tripForm.companions" :key="index" class="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 flex justify-between items-center">
+                                            <div class="flex items-center gap-3.5">
+                                                <div class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">{{ comp.charAt(0) }}</div>
+                                                <p class="font-bold text-gray-800 text-sm">{{ comp }}</p>
+                                            </div>
+                                            <div v-if="index === 0" class="bg-gray-200 text-gray-500 text-[10px] px-2 py-1 rounded font-bold tracking-wider">主辦人</div>
+                                            <button v-else @click="removeCompanion(index)" class="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
                                         </div>
-                                        <div v-if="index === 0" class="bg-gray-200 text-gray-500 text-[10px] px-2 py-1 rounded font-bold">主辦人</div>
-                                        <button v-else @click="removeCompanion(index)" class="text-gray-300 hover:text-red-500"><i class="fas fa-times"></i></button>
                                     </div>
                                 </div>
                             </div>
-
+                            <button @click="showCompanionManager = false" class="w-full py-3.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg text-lg">完成設定</button>
                         </div>
-                        <button @click="saveTrip" class="w-full py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg">{{ currentTrip.id ? '完成設定' : '建立旅程' }}</button>
+
                     </div>
                 </div>
             </Transition>
@@ -413,6 +437,7 @@
                 const tripForm = ref({ destination: '', currency: '', companions: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
+                const showCompanionManager = ref(false); // New state for companion manager view
 
                 let unsubTrips = null;
                 let unsubInvites = null;
@@ -479,6 +504,7 @@
                         tripForm.value = { destination: '', currency: '¥', companions: [user.value.displayName || '我'], pendingEmails: [], startDate: '', endDate: '', budget: 0 };
                         currentTrip.value = {}; 
                         showTripModal.value = true;
+                        showCompanionManager.value = false; // Reset view
                     } else { openAddItemModal(); }
                 };
 
@@ -573,6 +599,7 @@
                         budget: currentTrip.value.budget || 0
                     };
                     showTripModal.value = true;
+                    showCompanionManager.value = false;
                 };
 
                 const openEditProfile = () => { profileForm.value = { displayName: settings.value.displayName || user.value.displayName || '', photoURL: settings.value.photoURL || user.value.photoURL || '' }; showUserMenu.value = false; showProfileModal.value = true; };
@@ -608,7 +635,6 @@
                 const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => { const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; };
 
-                // 邀請功能核心
                 const sendInvite = async () => {
                     if (!inviteEmail.value || !inviteEmail.value.includes('@')) return showAlert("請輸入有效的 Email");
                     if (tripForm.value.pendingEmails.includes(inviteEmail.value)) return showAlert("已邀請過此人");
@@ -638,7 +664,6 @@
                     await batch.commit();
                 };
 
-                // 移除邀請 / 移除成員
                 const removePending = async (email) => {
                     if(!currentTrip.value.id) {
                         tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
@@ -656,8 +681,6 @@
                     } else {
                          if(!confirm('確定移除此成員？注意：該成員將無法存取旅程。')) return;
                          const nameToRemove = tripForm.value.companions[index];
-                         // 此處僅移除名字顯示，實際權限移除需要 UID 對照，因資料結構限制，目前僅做名字移除
-                         // 若要完整移除權限，需知道該名字對應的 UID
                          const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                          await updateDoc(tripRef, { companions: arrayRemove(nameToRemove) });
                          tripForm.value.companions.splice(index, 1);
@@ -708,7 +731,7 @@
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
                     addDay, openMap, formatDate,
-                    sendInvite, respondToInvite, removePending, removeCompanion
+                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager
                 };
             }
         }).mount('#app');
