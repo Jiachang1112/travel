@@ -96,7 +96,7 @@
 
                     <button @click="showUserMenu = true" class="relative group focus:outline-none">
                         <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
-                             class="w-9 h-9 rounded-full border border-gray-200 transition transform active:scale-95">
+                             class="w-9 h-9 rounded-full border border-gray-200 transition transform active:scale-95 object-cover">
                     </button>
                 </div>
             </header>
@@ -354,13 +354,13 @@
                         </div>
 
                         <div class="flex flex-col items-center mb-6">
-                             <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3">
+                             <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
                              <h3 class="text-xl font-bold text-gray-800">{{ user.displayName || '使用者' }}</h3>
                              <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
                         </div>
 
                         <div class="flex flex-col gap-3">
-                            <button @click="alert('編輯檔案功能開發中...')" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2">
+                            <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-edit"></i> 編輯檔案
                             </button>
                             <button @click="logout" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2">
@@ -371,12 +371,36 @@
                 </div>
             </Transition>
 
+            <Transition name="fade">
+                <div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                         <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3>
+                            <button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="space-y-4 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label>
+                                <input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label>
+                                <input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                        </div>
+
+                         <button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button>
+                    </div>
+                </div>
+            </Transition>
+
         </template>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // ==========================================
@@ -410,8 +434,10 @@
                 
                 const activeTab = ref('schedule');
                 const showModal = ref(false);
-                const showSettings = ref(false); // 控制旅程設定
-                const showUserMenu = ref(false); // 控制個人選單 (新增)
+                const showSettings = ref(false); 
+                const showUserMenu = ref(false); 
+                const showProfileModal = ref(false); // 新增：控制編輯檔案視窗
+
                 const isEditing = ref(false);
                 const submitting = ref(false);
                 
@@ -430,6 +456,9 @@
                 const settingsInput = ref('我, 旅伴A');
                 const destinationInput = ref('東京');
                 const currencyInput = ref('¥');
+
+                // Profile Form
+                const profileForm = ref({ displayName: '', photoURL: '' });
 
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
@@ -477,6 +506,31 @@
 
                 const logout = () => signOut(auth);
 
+                // --- Profile Functions ---
+                const openEditProfile = () => {
+                    profileForm.value = {
+                        displayName: user.value.displayName || '',
+                        photoURL: user.value.photoURL || ''
+                    };
+                    showUserMenu.value = false;
+                    showProfileModal.value = true;
+                };
+
+                const saveProfile = async () => {
+                    if (!user.value) return;
+                    try {
+                        await updateProfile(user.value, {
+                            displayName: profileForm.value.displayName,
+                            photoURL: profileForm.value.photoURL
+                        });
+                        // 雖然 Firebase 狀態會更新，但有時本地變數反應慢，這裡強制更新本地顯示
+                        user.value = { ...user.value, ...profileForm.value };
+                        showProfileModal.value = false;
+                    } catch (e) {
+                        alert("更新失敗: " + e.message);
+                    }
+                };
+
                 let unsubSchedule = null;
                 let unsubExpenses = null;
                 let unsubSettings = null;
@@ -489,7 +543,6 @@
                     unsubSettings = onSnapshot(settingsRef, (docSnap) => {
                         if (docSnap.exists()) {
                             settings.value = docSnap.data();
-                            // Sync inputs with fetched data
                             settingsInput.value = settings.value.users ? settings.value.users.join(', ') : '';
                             destinationInput.value = settings.value.destination || '東京';
                             currencyInput.value = settings.value.currency || '¥';
@@ -675,15 +728,16 @@
 
                 return {
                     user, loading, loginError,
-                    activeTab, showModal, showSettings, showUserMenu, isEditing, submitting,
+                    activeTab, showModal, showSettings, showUserMenu, showProfileModal, isEditing, submitting,
                     days, currentDayIndex,
                     schedule, expenses, settings, 
                     settingsInput, destinationInput, currencyInput,
+                    profileForm,
                     form, expenseForm,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
                     loginWithGoogle, logout,
                     addDay, openAddModal, editEvent, submitForm, deleteItem, closeModal,
-                    saveSettings, openMap, formatDate
+                    saveSettings, openMap, formatDate, openEditProfile, saveProfile
                 };
             }
         }).mount('#app');
