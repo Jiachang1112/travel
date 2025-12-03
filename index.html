@@ -321,14 +321,14 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
                                 <div @click="showCompanionManager = true" class="cursor-pointer group">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單</label>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單 (逗號分隔)</label>
                                     <div class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex justify-between items-center group-hover:border-primary transition">
                                         <span class="text-gray-800 truncate">{{ (tripForm.companions || []).join(', ') || '無' }}</span>
                                         <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
                                     </div>
                                 </div>
                             </div>
-                            <button @click="saveTrip" class="w-full py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存變更' : '建立旅程' }}</button>
+                            <button @click="saveTrip" class="w-full py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存旅程' : '建立旅程' }}</button>
                         </div>
 
                         <div v-else>
@@ -362,7 +362,10 @@
                                         
                                         <div v-for="(comp, index) in tripForm.companions" :key="index" class="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 flex justify-between items-center">
                                             <div class="flex items-center gap-3.5">
-                                                <div class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">{{ comp.charAt(0) }}</div>
+                                                <div class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-sm overflow-hidden">
+                                                     <span v-if="!getMemberPhoto(comp)">{{ comp.charAt(0) }}</span>
+                                                     <img v-else :src="getMemberPhoto(comp)" class="w-full h-full object-cover">
+                                                </div>
                                                 <p class="font-bold text-gray-800 text-sm">{{ comp }}</p>
                                             </div>
                                             <div v-if="index === 0" class="bg-gray-200 text-gray-500 text-[10px] px-2 py-1 rounded font-bold tracking-wider">主辦人</div>
@@ -434,10 +437,10 @@
                 const expenses = ref([]);
                 const settings = ref({});
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const tripForm = ref({ destination: '', currency: '', companions: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
+                const tripForm = ref({ destination: '', currency: '', companions: [], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
-                const showCompanionManager = ref(false); // New state for companion manager view
+                const showCompanionManager = ref(false);
 
                 let unsubTrips = null;
                 let unsubInvites = null;
@@ -501,10 +504,10 @@
 
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
-                        tripForm.value = { destination: '', currency: '¥', companions: [user.value.displayName || '我'], pendingEmails: [], startDate: '', endDate: '', budget: 0 };
+                        tripForm.value = { destination: '', currency: '¥', companions: [user.value.displayName || '我'], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 };
                         currentTrip.value = {}; 
                         showTripModal.value = true;
-                        showCompanionManager.value = false; // Reset view
+                        showCompanionManager.value = false;
                     } else { openAddItemModal(); }
                 };
 
@@ -532,7 +535,9 @@
                     
                     if(!currentTrip.value.id) {
                          tripData.memberUids = [user.value.uid];
+                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL}]; // Init members
                     } else {
+                         // Auto-repair for existing trips
                          let existingMembers = currentTrip.value.memberUids || [];
                          if(!existingMembers.includes(user.value.uid)) existingMembers.push(user.value.uid);
                          tripData.memberUids = existingMembers;
@@ -593,6 +598,7 @@
                         destination: currentTrip.value.destination,
                         currency: currentTrip.value.currency,
                         companions: currentTrip.value.companions || [],
+                        members: currentTrip.value.members || [], // Load detailed members
                         pendingEmails: currentTrip.value.pendingEmails || [],
                         startDate: currentTrip.value.startDate || '',
                         endDate: currentTrip.value.endDate || '',
@@ -600,6 +606,11 @@
                     };
                     showTripModal.value = true;
                     showCompanionManager.value = false;
+                };
+
+                const getMemberPhoto = (name) => {
+                    const mem = (tripForm.value.members || []).find(m => m.name === name);
+                    return mem ? mem.photo : null;
                 };
 
                 const openEditProfile = () => { profileForm.value = { displayName: settings.value.displayName || user.value.displayName || '', photoURL: settings.value.photoURL || user.value.photoURL || '' }; showUserMenu.value = false; showProfileModal.value = true; };
@@ -655,10 +666,12 @@
                     const tripRef = doc(db, 'artifacts', appId, 'trips', trip.id);
                     const batch = writeBatch(db);
                     if (accept) {
+                        const myData = {uid: user.value.uid, name: settings.value.displayName || user.value.displayName || '新成員', photo: settings.value.photoURL || user.value.photoURL};
                         batch.update(tripRef, { 
                             memberUids: arrayUnion(user.value.uid),
                             pendingEmails: arrayRemove(user.value.email),
-                            companions: arrayUnion(settings.value.displayName || user.value.displayName || '新成員')
+                            companions: arrayUnion(myData.name),
+                            members: arrayUnion(myData)
                         });
                     } else { batch.update(tripRef, { pendingEmails: arrayRemove(user.value.email) }); }
                     await batch.commit();
@@ -681,8 +694,23 @@
                     } else {
                          if(!confirm('確定移除此成員？注意：該成員將無法存取旅程。')) return;
                          const nameToRemove = tripForm.value.companions[index];
+                         
+                         // Try find corresponding member object to remove UID access
+                         const memberObj = (tripForm.value.members || []).find(m => m.name === nameToRemove);
+                         const uidToRemove = memberObj ? memberObj.uid : null;
+
+                         const batch = writeBatch(db);
                          const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
-                         await updateDoc(tripRef, { companions: arrayRemove(nameToRemove) });
+                         
+                         batch.update(tripRef, { companions: arrayRemove(nameToRemove) });
+                         if (uidToRemove) {
+                             batch.update(tripRef, { 
+                                 memberUids: arrayRemove(uidToRemove),
+                                 members: arrayRemove(memberObj)
+                             });
+                         }
+                         
+                         await batch.commit();
                          tripForm.value.companions.splice(index, 1);
                     }
                 };
@@ -731,7 +759,7 @@
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
                     addDay, openMap, formatDate,
-                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager
+                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto
                 };
             }
         }).mount('#app');
