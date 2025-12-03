@@ -87,8 +87,7 @@
                             <span v-else>{{ currentTrip.destination || '未命名旅程' }}</span>
                             <span v-if="loading" class="ml-2 loader w-4 h-4 border-2"></span>
                         </h1>
-                        <p class="text-[10px] text-gray-500 font-mono">ID: {{ settings.displayName || user.displayName || 'Traveler' }}</p>
-                    </div>
+                        </div>
                 </div>
                 
                 <div class="flex items-center gap-3">
@@ -335,14 +334,37 @@
                              <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
                              <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
                              <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
+                             
+                             <div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID">
+                                <span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span>
+                                <i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i>
+                             </div>
+                             <p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p>
+
                         </div>
                         <div class="flex flex-col gap-3">
                             <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-edit"></i> 編輯檔案
                             </button>
-                            <button @click="logout" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2">
+                            <button @click="showLogoutConfirm = true" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-sign-out-alt"></i> 登出帳號
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showLogoutConfirm" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showLogoutConfirm = false">
+                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">確定登出？</h3>
+                        <p class="text-sm text-gray-500 mb-6">您確定要登出目前的帳號嗎？</p>
+                        <div class="flex gap-3">
+                            <button @click="showLogoutConfirm = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button>
+                            <button @click="confirmLogout" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">登出</button>
                         </div>
                     </div>
                 </div>
@@ -421,6 +443,8 @@
                 const showUserMenu = ref(false); 
                 const showProfileModal = ref(false);
                 const showDestinationModal = ref(false);
+                const showLogoutConfirm = ref(false); // New modal state
+                const copyToast = ref(''); // State for copy feedback
                 
                 // Forms & State
                 const activeRegion = ref('東');
@@ -474,7 +498,23 @@
                     } catch (error) { loginError.value = "登入失敗: " + error.message; }
                 };
 
-                const logout = () => signOut(auth);
+                const confirmLogout = async () => {
+                    await signOut(auth);
+                    showLogoutConfirm.value = false;
+                    showUserMenu.value = false;
+                };
+
+                const copyUid = async () => {
+                    if (user.value && user.value.uid) {
+                        try {
+                            await navigator.clipboard.writeText(user.value.uid);
+                            copyToast.value = '已複製!';
+                            setTimeout(() => copyToast.value = '', 2000);
+                        } catch (err) {
+                            console.error('Failed to copy!', err);
+                        }
+                    }
+                };
 
                 // --- 1. Global Data (Trips List & User Settings) ---
                 const fetchGlobalData = () => {
@@ -698,11 +738,12 @@
                     currentView, trips, currentTrip,
                     activeTab, days, currentDayIndex,
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
+                    showLogoutConfirm, copyToast, // New refs
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
-                    loginWithGoogle, logout,
+                    loginWithGoogle, confirmLogout, copyUid, // New/Modified functions
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
