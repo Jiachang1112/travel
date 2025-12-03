@@ -151,10 +151,7 @@
                                 class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
                                 Day {{ index + 1 }}
                             </button>
-                            <button @click="addDay" class="flex-shrink-0 w-10 flex items-center justify-center rounded-xl bg-gray-200 text-gray-500 hover:bg-gray-300">
-                                <i class="fas fa-plus text-xs"></i>
-                            </button>
-                        </div>
+                            </div>
 
                         <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2 pb-20">
                             <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
@@ -404,7 +401,7 @@
                             <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-edit"></i> 編輯檔案
                             </button>
-                            <button @click="showLogoutConfirm = true" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2">
+                            <button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-sign-out-alt"></i> 登出帳號
                             </button>
                         </div>
@@ -413,16 +410,16 @@
             </Transition>
 
             <Transition name="fade">
-                <div v-if="showLogoutConfirm" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showLogoutConfirm = false">
+                <div v-if="showConfirmModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false">
                     <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
                         <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl">
-                            <i class="fas fa-sign-out-alt"></i>
+                            <i class="fas fa-exclamation-triangle"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-gray-800 mb-2">確定登出？</h3>
-                        <p class="text-sm text-gray-500 mb-6">您確定要登出目前的帳號嗎？</p>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">確認操作</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</p>
                         <div class="flex gap-3">
-                            <button @click="showLogoutConfirm = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button>
-                            <button @click="confirmLogout" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">登出</button>
+                            <button @click="showConfirmModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button>
+                            <button @click="executeConfirm" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">確定</button>
                         </div>
                     </div>
                 </div>
@@ -465,7 +462,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         const secretPart = "FBLe6QQAySZGw4qv3LB8Q"; 
         const userConfig = {
@@ -500,45 +497,43 @@
                 const loading = ref(true);
                 const loginError = ref('');
                 
-                // Views: 'dashboard' (list) or 'planner' (detail)
                 const currentView = ref('dashboard');
                 const trips = ref([]);
                 const currentTrip = ref({});
                 
-                // Tabs inside planner
                 const activeTab = ref('schedule');
-                const days = ref(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']);
+                const days = ref([]);
                 const currentDayIndex = ref(0);
                 
-                // Modals
                 const showItemModal = ref(false);
                 const showTripModal = ref(false);
                 const showUserMenu = ref(false); 
                 const showProfileModal = ref(false);
                 const showDestinationModal = ref(false);
-                const showLogoutConfirm = ref(false);
+                
+                // Generic Confirm Modal
+                const showConfirmModal = ref(false);
+                const confirmMessage = ref('');
+                const pendingAction = ref(null); // Stores the callback
+
                 const showErrorModal = ref(false);
                 const errorMessage = ref('');
                 const copyToast = ref('');
                 
-                // Forms & State
                 const activeRegion = ref('東');
                 const isEditing = ref(false);
                 const submitting = ref(false);
                 const currentEditId = ref(null);
                 
-                // Data Containers
                 const schedule = ref([]);
                 const expenses = ref([]);
                 const settings = ref({});
 
-                // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '', budget: 0 }); // Added budget
+                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '', budget: 0 });
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
 
-                // Listeners
                 let unsubTrips = null;
                 let unsubSchedule = null;
                 let unsubExpenses = null;
@@ -565,10 +560,31 @@
                     });
                 });
 
-                // Helper to trigger custom error modal
                 const showAlert = (msg) => {
                     errorMessage.value = msg;
                     showErrorModal.value = true;
+                };
+
+                const confirmAction = (actionType, payload) => {
+                    if (actionType === 'logout') {
+                        confirmMessage.value = '您確定要登出目前的帳號嗎？';
+                        pendingAction.value = async () => {
+                            await signOut(auth);
+                            showUserMenu.value = false;
+                        };
+                    } else if (actionType === 'reduce_days') {
+                        confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？';
+                        pendingAction.value = payload; // The payload is the save logic
+                    }
+                    showConfirmModal.value = true;
+                };
+
+                const executeConfirm = async () => {
+                    if (pendingAction.value) {
+                        await pendingAction.value();
+                        pendingAction.value = null;
+                    }
+                    showConfirmModal.value = false;
                 };
 
                 const loginWithGoogle = async () => {
@@ -577,12 +593,6 @@
                         if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } 
                         else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); }
                     } catch (error) { showAlert("登入失敗: " + error.message); }
-                };
-
-                const confirmLogout = async () => {
-                    await signOut(auth);
-                    showLogoutConfirm.value = false;
-                    showUserMenu.value = false;
                 };
 
                 const copyUid = async () => {
@@ -597,7 +607,6 @@
                     }
                 };
 
-                // --- 1. Global Data (Trips List & User Settings) ---
                 const fetchGlobalData = () => {
                     const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                     unsubSettings = onSnapshot(settingsRef, (docSnap) => {
@@ -614,7 +623,6 @@
                     });
                 };
 
-                // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
                         tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '', budget: 0 };
@@ -625,9 +633,21 @@
                     }
                 };
 
+                const calculateDays = (start, end) => {
+                    if (!start || !end) return [];
+                    const s = new Date(start);
+                    const e = new Date(end);
+                    const diffTime = Math.abs(e - s);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+                    return Array.from({length: diffDays}, (_, i) => `Day ${i + 1}`);
+                };
+
                 const saveTrip = async () => {
                     const companionsArr = tripForm.value.companions.split(/[,，]/).map(u => u.trim()).filter(u => u);
                     if (!tripForm.value.destination) return showAlert('請輸入目的地');
+                    if (!tripForm.value.startDate || !tripForm.value.endDate) return showAlert('請選擇旅遊日期');
+                    
+                    const newDays = calculateDays(tripForm.value.startDate, tripForm.value.endDate);
                     
                     const tripData = {
                         destination: tripForm.value.destination,
@@ -635,20 +655,48 @@
                         companions: companionsArr.length ? companionsArr : ['我'],
                         startDate: tripForm.value.startDate,
                         endDate: tripForm.value.endDate,
-                        budget: tripForm.value.budget || 0, // Save budget
+                        budget: tripForm.value.budget || 0,
                         updatedAt: new Date().toISOString()
                     };
 
-                    try {
-                        const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
-                        if (currentTrip.value.id) {
-                            await updateDoc(doc(tripsRef, currentTrip.value.id), tripData);
-                            currentTrip.value = { ...currentTrip.value, ...tripData };
-                        } else {
-                            await addDoc(tripsRef, tripData);
+                    const performSave = async () => {
+                        try {
+                            const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
+                            if (currentTrip.value.id) {
+                                // If editing existing trip, check if reducing days needs cleanup
+                                if (newDays.length < days.value.length) {
+                                    const eventsToDelete = schedule.value.filter(e => e.dayIndex >= newDays.length);
+                                    if (eventsToDelete.length > 0) {
+                                        // Delete batch
+                                        const batch = writeBatch(db);
+                                        const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
+                                        eventsToDelete.forEach(ev => {
+                                            batch.delete(doc(tripDocRef, 'schedule', ev.id));
+                                        });
+                                        await batch.commit();
+                                    }
+                                }
+                                await updateDoc(doc(tripsRef, currentTrip.value.id), tripData);
+                                currentTrip.value = { ...currentTrip.value, ...tripData };
+                                days.value = newDays; // Update local days immediately
+                            } else {
+                                await addDoc(tripsRef, tripData);
+                            }
+                            showTripModal.value = false;
+                        } catch (e) { showAlert("儲存失敗: " + e.message); }
+                    };
+
+                    // Check conflict logic
+                    if (currentTrip.value.id && newDays.length < days.value.length) {
+                        const hasConflict = schedule.value.some(e => e.dayIndex >= newDays.length);
+                        if (hasConflict) {
+                            confirmAction('reduce_days', performSave);
+                            return; // Stop here, wait for confirm
                         }
-                        showTripModal.value = false;
-                    } catch (e) { showAlert("儲存失敗"); }
+                    }
+
+                    // No conflict or new trip, just save
+                    performSave();
                 };
 
                 const enterTrip = (trip) => {
@@ -656,6 +704,10 @@
                     currentView.value = 'planner';
                     activeTab.value = 'schedule';
                     
+                    // Generate days from dates
+                    days.value = calculateDays(trip.startDate, trip.endDate);
+                    if (days.value.length === 0) days.value = ['Day 1']; // Fallback
+
                     const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', trip.id);
                     
                     unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (snapshot) => {
@@ -687,7 +739,6 @@
                     showTripModal.value = true;
                 };
 
-                // --- 3. Profile Actions ---
                 const openEditProfile = () => {
                     profileForm.value = {
                         displayName: settings.value.displayName || user.value.displayName || '',
@@ -704,18 +755,15 @@
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         });
-                        
                         const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                         await setDoc(ref, {
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         }, { merge: true });
-
                         showProfileModal.value = false;
                     } catch (e) { showAlert("更新失敗: " + e.message); }
                 };
 
-                // --- 4. Schedule/Expense Items Logic ---
                 const openAddItemModal = () => {
                     isEditing.value = false;
                     currentEditId.value = null;
@@ -759,21 +807,31 @@
                     } catch (e) { showAlert("刪除失敗"); }
                 };
 
-                // --- Helpers ---
                 const selectDestination = (country) => {
                     tripForm.value.destination = country.name;
                     tripForm.value.currency = country.currency;
                     showDestinationModal.value = false;
                 };
                 
-                const addDay = () => days.value.push(`Day ${days.value.length + 1}`);
+                const addDay = async () => {
+                    // Logic to extend end date by 1 day
+                    if (!currentTrip.value.endDate) return showAlert("請先設定旅遊日期");
+                    const date = new Date(currentTrip.value.endDate);
+                    date.setDate(date.getDate() + 1);
+                    const newEndDate = date.toISOString().split('T')[0];
+                    
+                    const tripsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
+                    await updateDoc(tripsRef, { endDate: newEndDate });
+                    currentTrip.value.endDate = newEndDate;
+                    days.value = calculateDays(currentTrip.value.startDate, newEndDate);
+                };
+
                 const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => {
                     const d = new Date(iso);
                     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
                 };
 
-                // --- Computeds ---
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
                 const sortedEvents = computed(() => [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time)));
                 const sortedExpenses = computed(() => [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date)));
@@ -783,7 +841,6 @@
                     return Math.round(totalExpense.value / currentTrip.value.companions.length);
                 });
                 
-                // New: Budget Computed Properties
                 const budgetPercentage = computed(() => {
                     if (!currentTrip.value.budget || currentTrip.value.budget <= 0) return 0;
                     return (totalExpense.value / currentTrip.value.budget) * 100;
@@ -835,13 +892,14 @@
                     currentView, trips, currentTrip,
                     activeTab, days, currentDayIndex,
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
-                    showLogoutConfirm, showErrorModal, errorMessage, copyToast,
+                    showConfirmModal, confirmMessage, executeConfirm, confirmAction, // New confirm refs
+                    showErrorModal, errorMessage, copyToast,
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
-                    budgetPercentage, remainingBudget, budgetColor, // Return new computed
-                    loginWithGoogle, confirmLogout, copyUid,
+                    budgetPercentage, remainingBudget, budgetColor,
+                    loginWithGoogle, copyUid,
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
