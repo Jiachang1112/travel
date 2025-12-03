@@ -28,14 +28,12 @@
         .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
         .slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); }
 
-        /* Loading Spinner */
         .loader {
             border: 3px solid #f3f3f3;
             border-radius: 50%;
             border-top: 3px solid #6366f1;
             width: 24px;
             height: 24px;
-            -webkit-animation: spin 1s linear infinite; /* Safari */
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -73,24 +71,28 @@
                 <span class="font-medium text-gray-700">使用 Google 帳號登入</span>
             </button>
             <p v-if="loginError" class="text-red-500 text-sm mt-4">{{ loginError }}</p>
-            
-            <p class="mt-8 text-xs text-gray-400">
-                注意：首次使用請確保已啟用 Firebase Authentication
-            </p>
         </div>
 
         <template v-else>
-            <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16">
-                <div>
-                    <h1 class="text-lg font-bold text-gray-800 flex items-center">
-                        {{ settings.destination || '我的旅程' }} ✈️
-                        <span v-if="loading" class="ml-2 loader"></span>
-                    </h1>
-                    <p class="text-[10px] text-gray-500 font-mono">ID: {{ settings.displayName || user.displayName || 'Traveler' }}</p>
+            
+            <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0">
+                <div class="flex items-center gap-2">
+                    <button v-if="currentView === 'planner'" @click="exitTrip" class="w-8 h-8 flex items-center justify-center -ml-2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-800 flex items-center">
+                            <span v-if="currentView === 'dashboard'">我的旅程 🧳</span>
+                            <span v-else>{{ currentTrip.destination || '未命名旅程' }}</span>
+                            <span v-if="loading" class="ml-2 loader w-4 h-4 border-2"></span>
+                        </h1>
+                        <p class="text-[10px] text-gray-500 font-mono">ID: {{ settings.displayName || user.displayName || 'Traveler' }}</p>
+                    </div>
                 </div>
                 
                 <div class="flex items-center gap-3">
-                    <button @click="showSettings = true" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-primary hover:bg-indigo-50 flex items-center justify-center transition">
+                    <button v-if="currentView === 'planner'" @click="openTripSettings" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-primary hover:bg-indigo-50 flex items-center justify-center transition">
                         <i class="fas fa-cog"></i>
                     </button>
 
@@ -101,283 +103,220 @@
                 </div>
             </header>
 
-            <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-24 relative bg-gray-50">
+            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50">
                 
-                <div v-if="activeTab === 'schedule'">
-                    <div class="flex space-x-2 overflow-x-auto no-scrollbar mb-6 p-2">
-                        <button 
-                            v-for="(day, index) in days" 
-                            :key="index"
-                            @click="currentDayIndex = index"
-                            :class="currentDayIndex === index ? 'bg-primary text-white shadow-lg shadow-indigo-200 ring-2 ring-primary ring-offset-1' : 'bg-white text-gray-500 border border-gray-100'"
-                            class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
-                            Day {{ index + 1 }}
-                        </button>
-                        <button @click="addDay" class="flex-shrink-0 w-10 flex items-center justify-center rounded-xl bg-gray-200 text-gray-500 hover:bg-gray-300">
-                            <i class="fas fa-plus text-xs"></i>
-                        </button>
+                <div v-if="currentView === 'dashboard'" class="space-y-4">
+                    <div v-if="trips.length === 0 && !loading" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
+                        <p>還沒有任何旅程</p>
+                        <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
                     </div>
 
-                    <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2">
-                        <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
-                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm z-10"></div>
-                            
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                                <div class="flex justify-between items-start mb-1">
-                                    <span class="text-primary font-bold text-lg font-mono tracking-tight">{{ event.time }}</span>
-                                    <div class="flex space-x-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
-                                        <button @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                                    </div>
-                                </div>
-                                <h3 class="font-bold text-gray-800 text-lg mb-1">{{ event.title }}</h3>
-                                
-                                <div v-if="event.location" class="flex items-center text-gray-500 text-sm mb-2 cursor-pointer" @click="openMap(event.location)">
-                                    <i class="fas fa-map-marker-alt mr-1.5 text-secondary"></i>
-                                    <span class="truncate border-b border-dashed border-gray-300 hover:text-gray-700">{{ event.location }}</span>
-                                </div>
-
-                                <p v-if="event.note" class="text-gray-400 text-sm mt-2 pt-2 border-t border-gray-50 flex items-start">
-                                    <i class="fas fa-info-circle mr-1.5 mt-0.5 opacity-50"></i> 
-                                    <span>{{ event.note }}</span>
+                    <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
+                         class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
+                        
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
+                                <p class="text-xs text-gray-500 flex items-center gap-1">
+                                    <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
+                                    <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
                                 </p>
                             </div>
+                            <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
                         </div>
-                    </div>
-                    
-                    <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
-                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">🗓️</div>
-                        <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
-                        <p class="text-xs mt-2">點擊右下角按鈕開始規劃</p>
                     </div>
                 </div>
 
-                <div v-else-if="activeTab === 'expense'">
-                    <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl shadow-gray-200/50 mb-6 relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-                        <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Total Expenses</p>
-                        <h2 class="text-4xl font-bold font-mono tracking-tight flex items-baseline">
-                            <span class="text-xl mr-1">{{ settings.currency || '$' }}</span>{{ totalExpense.toLocaleString() }}
-                        </h2>
-                        <div class="mt-6 flex justify-between items-end">
-                            <div>
-                                <p class="text-gray-400 text-xs mb-1">Average per person</p>
-                                <p class="font-mono text-lg">{{ settings.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
-                            </div>
-                            <div class="flex -space-x-2">
-                                <div v-for="(u, i) in settings.users" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
-                                    {{ u.charAt(0) }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="debts.length > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
-                        <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">結算方案</h3>
-                        <div class="space-y-3">
-                            <div v-for="(debt, idx) in debts" :key="idx" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <div class="flex items-center text-sm">
-                                    <span class="font-bold text-gray-700">{{ debt.from }}</span>
-                                    <i class="fas fa-long-arrow-alt-right mx-2 text-gray-400"></i>
-                                    <span class="font-bold text-gray-700">{{ debt.to }}</span>
-                                </div>
-                                <span class="font-mono font-bold text-secondary">{{ settings.currency || '$' }}{{ debt.amount.toLocaleString() }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-between items-end mb-3 px-1">
-                        <h3 class="font-bold text-gray-700">支出明細</h3>
-                        <span class="text-xs text-gray-400">{{ expenses.length }} 筆資料</span>
-                    </div>
+                <div v-else-if="currentView === 'planner'">
                     
-                    <div class="space-y-3 pb-20">
-                        <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
-                                    {{ expense.payer ? expense.payer.charAt(0) : '?' }}
+                    <div v-if="activeTab === 'schedule'">
+                        <div class="flex space-x-2 overflow-x-auto no-scrollbar mb-6 p-2">
+                            <button v-for="(day, index) in days" :key="index" @click="currentDayIndex = index"
+                                :class="currentDayIndex === index ? 'bg-primary text-white shadow-lg shadow-indigo-200 ring-2 ring-primary ring-offset-1' : 'bg-white text-gray-500 border border-gray-100'"
+                                class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
+                                Day {{ index + 1 }}
+                            </button>
+                            <button @click="addDay" class="flex-shrink-0 w-10 flex items-center justify-center rounded-xl bg-gray-200 text-gray-500 hover:bg-gray-300">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+
+                        <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2 pb-20">
+                            <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
+                                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm z-10"></div>
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <span class="text-primary font-bold text-lg font-mono tracking-tight">{{ event.time }}</span>
+                                        <div class="flex space-x-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
+                                            <button @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800 text-lg mb-1">{{ event.title }}</h3>
+                                    <div v-if="event.location" class="flex items-center text-gray-500 text-sm mb-2 cursor-pointer" @click="openMap(event.location)">
+                                        <i class="fas fa-map-marker-alt mr-1.5 text-secondary"></i>
+                                        <span class="truncate border-b border-dashed border-gray-300 hover:text-gray-700">{{ event.location }}</span>
+                                    </div>
+                                    <p v-if="event.note" class="text-gray-400 text-sm mt-2 pt-2 border-t border-gray-50 flex items-start">
+                                        <i class="fas fa-info-circle mr-1.5 mt-0.5 opacity-50"></i> <span>{{ event.note }}</span>
+                                    </p>
                                 </div>
-                                <div>
-                                    <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
-                                    <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(expense.date) }} · {{ expense.payer }}</p>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <p class="font-bold font-mono text-gray-800">{{ settings.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
-                                <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
                             </div>
                         </div>
-                        <div v-if="expenses.length === 0" class="text-center py-10 text-gray-400 text-sm italic">
-                            記下第一筆花費吧！💰
+                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">🗓️</div>
+                            <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
+                        </div>
+                    </div>
+
+                    <div v-else-if="activeTab === 'expense'" class="pb-20">
+                        <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl shadow-gray-200/50 mb-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+                            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Total Expenses</p>
+                            <h2 class="text-4xl font-bold font-mono tracking-tight flex items-baseline">
+                                <span class="text-xl mr-1">{{ currentTrip.currency || '$' }}</span>{{ totalExpense.toLocaleString() }}
+                            </h2>
+                            <div class="mt-6 flex justify-between items-end">
+                                <div>
+                                    <p class="text-gray-400 text-xs mb-1">Average per person</p>
+                                    <p class="font-mono text-lg">{{ currentTrip.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
+                                </div>
+                                <div class="flex -space-x-2">
+                                    <div v-for="(u, i) in (currentTrip.companions || [])" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
+                                        {{ u.charAt(0) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="debts.length > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
+                            <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">結算方案</h3>
+                            <div class="space-y-3">
+                                <div v-for="(debt, idx) in debts" :key="idx" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center text-sm">
+                                        <span class="font-bold text-gray-700">{{ debt.from }}</span>
+                                        <i class="fas fa-long-arrow-alt-right mx-2 text-gray-400"></i>
+                                        <span class="font-bold text-gray-700">{{ debt.to }}</span>
+                                    </div>
+                                    <span class="font-mono font-bold text-secondary">{{ currentTrip.currency || '$' }}{{ debt.amount.toLocaleString() }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
+                                        {{ expense.payer ? expense.payer.charAt(0) : '?' }}
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(expense.date) }} · {{ expense.payer }}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold font-mono text-gray-800">{{ currentTrip.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
+                                    <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
             </main>
 
-            <button 
-                @click="openAddModal"
+            <button @click="onFabClick"
                 class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40">
                 <i class="fas fa-plus"></i>
             </button>
 
-            <nav class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
-                <button 
-                    @click="activeTab = 'schedule'" 
-                    class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200"
-                    :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
+            <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
                     <i class="fas fa-map-marked-alt text-xl mb-0.5 transform transition" :class="activeTab === 'schedule' ? 'scale-110' : ''"></i>
                     <span class="text-[10px] font-bold tracking-wide">行程</span>
                 </button>
                 <div class="w-px h-8 bg-gray-100"></div>
-                <button 
-                    @click="activeTab = 'expense'" 
-                    class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200"
-                    :class="activeTab === 'expense' ? 'text-secondary' : 'text-gray-300 hover:text-gray-500'">
+                <button @click="activeTab = 'expense'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'expense' ? 'text-secondary' : 'text-gray-300 hover:text-gray-500'">
                     <i class="fas fa-wallet text-xl mb-0.5 transform transition" :class="activeTab === 'expense' ? 'scale-110' : ''"></i>
                     <span class="text-[10px] font-bold tracking-wide">分帳</span>
                 </button>
             </nav>
 
             <Transition name="slide-up">
-                <div v-if="showModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="closeModal">
+                <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="showItemModal = false">
                     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl h-[85vh] sm:h-auto flex flex-col">
                         <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-bold text-gray-800">
-                                {{ isEditing ? '編輯' : '新增' }} {{ activeTab === 'schedule' ? '行程' : '支出' }}
-                            </h3>
-                            <button @click="closeModal" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200">
-                                <i class="fas fa-times"></i>
-                            </button>
+                            <h3 class="text-xl font-bold text-gray-800">{{ isEditing ? '編輯' : '新增' }} {{ activeTab === 'schedule' ? '行程' : '支出' }}</h3>
+                            <button @click="showItemModal = false" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-times"></i></button>
                         </div>
-
                         <div class="flex-1 overflow-y-auto no-scrollbar space-y-5">
                             <div v-if="activeTab === 'schedule'" class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">時間</label>
-                                    <input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition text-lg font-mono">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">活動</label>
-                                    <input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">地點</label>
-                                    <div class="relative">
-                                        <i class="fas fa-map-pin absolute left-4 top-4 text-gray-400"></i>
-                                        <input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label>
-                                    <textarea v-model="form.note" rows="3" placeholder="票券資訊、預約號碼..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition resize-none"></textarea>
-                                </div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">時間</label><input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-lg font-mono"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">活動</label><input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">地點</label><div class="relative"><i class="fas fa-map-pin absolute left-4 top-4 text-gray-400"></i><input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary"></div></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label><textarea v-model="form.note" rows="3" placeholder="票券資訊..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none"></textarea></div>
                             </div>
-
                             <div v-if="activeTab === 'expense'" class="space-y-5">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label>
-                                    <div class="relative">
-                                        <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ settings.currency || '$' }}</span>
-                                        <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition text-2xl font-mono font-bold">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label>
-                                    <input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label>
-                                    <div class="grid grid-cols-3 gap-2">
-                                        <button 
-                                            v-for="u in settings.users" 
-                                            :key="u" 
-                                            @click="expenseForm.payer = u"
-                                            :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-                                            class="py-2.5 rounded-lg text-sm font-medium transition">
-                                            {{ u }}
-                                        </button>
-                                    </div>
-                                </div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label><div class="relative"><span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span><input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-secondary text-2xl font-mono font-bold"></div></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label><input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label><div class="grid grid-cols-3 gap-2"><button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button></div></div>
                             </div>
                         </div>
-
-                        <button @click="submitForm" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
-                            <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>
-                            {{ isEditing ? '儲存變更' : '確認新增' }}
+                        <button @click="submitItem" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
+                            <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>{{ isEditing ? '儲存變更' : '確認新增' }}
                         </button>
                     </div>
                 </div>
             </Transition>
 
-             <Transition name="fade">
-                <div v-if="showSettings" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showSettings = false">
+            <Transition name="fade">
+                <div v-if="showTripModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showTripModal = false">
                     <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
-                        
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-bold text-gray-800">旅程設定</h3>
-                            <button @click="showSettings = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                            <h3 class="text-lg font-bold text-gray-800">{{ currentTrip.id ? '旅程設定' : '建立新旅程' }}</h3>
+                            <button @click="showTripModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
                         </div>
-                        
                         <div class="space-y-4 mb-6">
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">目的地 (標題)</label>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">目的地</label>
                                 <div class="relative">
-                                    <input 
-                                        readonly 
-                                        @click="showDestinationModal = true" 
-                                        v-model="destinationInput" 
-                                        type="text" 
-                                        placeholder="點擊選擇目的地" 
-                                        class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary cursor-pointer pr-10">
+                                    <input readonly @click="showDestinationModal = true" v-model="tripForm.destination" type="text" placeholder="點擊選擇" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary cursor-pointer pr-10">
                                     <i class="fas fa-chevron-down absolute right-3 top-4 text-gray-400 text-xs pointer-events-none"></i>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label>
                                 <div class="flex gap-2">
-                                    <input v-model="currencyInput" type="text" placeholder="例如：¥, $, ₩" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                                    <button @click="currencyInput='NT$'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">NT$</button>
-                                    <button @click="currencyInput='¥'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">¥</button>
-                                    <button @click="currencyInput='$'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">$</button>
+                                    <input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                                    <button @click="tripForm.currency='NT$'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">NT$</button>
+                                    <button @click="tripForm.currency='¥'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">¥</button>
+                                    <button @click="tripForm.currency='$'" class="px-3 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200">$</button>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單 (逗號分隔)</label>
-                                <input v-model="settingsInput" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                                <input v-model="tripForm.companions" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
                             </div>
                         </div>
-
-                        <button @click="saveSettings" class="w-full py-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg shadow-gray-200">儲存旅程設定</button>
+                        <button @click="saveTrip" class="w-full py-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg shadow-gray-200">儲存旅程</button>
                     </div>
                 </div>
             </Transition>
-            
+
             <Transition name="fade">
-                <div v-if="showDestinationModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false">
+                <div v-if="showDestinationModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false">
                     <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl mx-5 overflow-hidden flex flex-col max-h-[70vh]">
                         <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 class="font-bold text-gray-800">選擇目的地</h3>
                             <button @click="showDestinationModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
                         </div>
-                        
                         <div class="flex border-b border-gray-200">
-                            <button v-for="key in Object.keys(regions)" :key="key" 
-                                @click="activeRegion = key"
-                                :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'"
-                                class="flex-1 py-3 text-sm font-bold border-b-2 transition">
-                                {{ key }}
-                            </button>
+                            <button v-for="key in Object.keys(regions)" :key="key" @click="activeRegion = key" :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'" class="flex-1 py-3 text-sm font-bold border-b-2 transition">{{ key }}</button>
                         </div>
-
                         <div class="p-4 overflow-y-auto grid grid-cols-2 gap-3 bg-gray-50/50 flex-1">
-                            <button 
-                                v-for="country in regions[activeRegion]" 
-                                :key="country.name"
-                                @click="selectDestination(country)"
-                                class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group">
+                            <button v-for="country in regions[activeRegion]" :key="country.name" @click="selectDestination(country)" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group">
                                 <span class="font-medium text-gray-700 group-hover:text-primary">{{ country.name }}</span>
                                 <span class="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ country.currency }}</span>
                             </button>
@@ -392,13 +331,11 @@
                          <div class="flex justify-end mb-2">
                             <button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
                         </div>
-
                         <div class="flex flex-col items-center mb-6">
                              <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
                              <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
                              <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
                         </div>
-
                         <div class="flex flex-col gap-3">
                             <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-edit"></i> 編輯檔案
@@ -418,18 +355,10 @@
                             <h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3>
                             <button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
                         </div>
-                        
                         <div class="space-y-4 mb-6">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label>
-                                <input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label>
-                                <input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                            </div>
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label><input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary"></div>
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label><input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary"></div>
                         </div>
-
                          <button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button>
                     </div>
                 </div>
@@ -443,9 +372,6 @@
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // ==========================================
-        // Firebase 設定區
-        // ==========================================
         const secretPart = "FBLe6QQAySZGw4qv3LB8Q"; 
         const userConfig = {
             apiKey: "AIzaSyAl4peLsSkvm-" + secretPart, 
@@ -466,33 +392,11 @@
 
         const { createApp, ref, computed, watch, onMounted } = window.Vue;
 
-        // 預定義的國家與貨幣資料
         const regions = {
-            '東': [
-                { name: '日本', currency: '¥' },
-                { name: '韓國', currency: '₩' },
-                { name: '台灣', currency: 'NT$' },
-                { name: '香港', currency: 'HK$' },
-                { name: '中國', currency: '¥' }
-            ],
-            '南': [
-                { name: '泰國', currency: '฿' },
-                { name: '越南', currency: '₫' },
-                { name: '新加坡', currency: 'S$' },
-                { name: '馬來西亞', currency: 'RM' },
-                { name: '菲律賓', currency: '₱' },
-                { name: '澳洲', currency: 'A$' }
-            ],
-            '西': [
-                { name: '美國', currency: '$' },
-                { name: '英國', currency: '£' },
-                { name: '歐盟', currency: '€' },
-                { name: '加拿大', currency: 'C$' }
-            ],
-            '北': [
-                { name: '北海道', currency: '¥' }, 
-                { name: '俄羅斯', currency: '₽' }
-            ]
+            '東': [{ name: '日本', currency: '¥' }, { name: '韓國', currency: '₩' }, { name: '台灣', currency: 'NT$' }, { name: '香港', currency: 'HK$' }, { name: '中國', currency: '¥' }],
+            '南': [{ name: '泰國', currency: '฿' }, { name: '越南', currency: '₫' }, { name: '新加坡', currency: 'S$' }, { name: '馬來西亞', currency: 'RM' }, { name: '菲律賓', currency: '₱' }, { name: '澳洲', currency: 'A$' }],
+            '西': [{ name: '美國', currency: '$' }, { name: '英國', currency: '£' }, { name: '歐盟', currency: '€' }, { name: '加拿大', currency: 'C$' }],
+            '北': [{ name: '北海道', currency: '¥' }, { name: '俄羅斯', currency: '₽' }]
         };
 
         createApp({
@@ -501,52 +405,49 @@
                 const loading = ref(true);
                 const loginError = ref('');
                 
+                // Views: 'dashboard' (list) or 'planner' (detail)
+                const currentView = ref('dashboard');
+                const trips = ref([]);
+                const currentTrip = ref({});
+                
+                // Tabs inside planner
                 const activeTab = ref('schedule');
-                const showModal = ref(false);
-                const showSettings = ref(false); 
+                const days = ref(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']);
+                const currentDayIndex = ref(0);
+                
+                // Modals
+                const showItemModal = ref(false);
+                const showTripModal = ref(false);
                 const showUserMenu = ref(false); 
                 const showProfileModal = ref(false);
-                
-                // 新增：目的地選擇器相關
                 const showDestinationModal = ref(false);
+                
+                // Forms & State
                 const activeRegion = ref('東');
-
                 const isEditing = ref(false);
                 const submitting = ref(false);
+                const currentEditId = ref(null);
                 
-                const currentDayIndex = ref(0);
-                const days = ref(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']);
-                
+                // Data Containers
                 const schedule = ref([]);
                 const expenses = ref([]);
-                
-                // Settings Data (包含個人資料)
-                const settings = ref({
-                    users: ['我', '旅伴A'],
-                    destination: '東京',
-                    currency: '¥',
-                    displayName: '', // 新增
-                    photoURL: ''     // 新增
-                });
-                const settingsInput = ref('我, 旅伴A');
-                const destinationInput = ref('東京');
-                const currencyInput = ref('¥');
+                const settings = ref({}); // Global user settings (profile backup)
 
-                // Profile Form
+                // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-
+                const tripForm = ref({ destination: '', currency: '', companions: '' });
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
-                const currentEditId = ref(null);
+
+                // Listeners
+                let unsubTrips = null;
+                let unsubSchedule = null;
+                let unsubExpenses = null;
+                let unsubSettings = null;
 
                 const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } catch (e) {
-                            console.error("Token login failed, falling back", e);
-                            await signInAnonymously(auth);
-                        }
+                        try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { await signInAnonymously(auth); }
                     } 
                 };
 
@@ -556,8 +457,9 @@
                         user.value = u;
                         loading.value = false;
                         if (u) {
-                            fetchData();
+                            fetchGlobalData();
                         } else {
+                            trips.value = [];
                             schedule.value = [];
                             expenses.value = [];
                         }
@@ -567,21 +469,107 @@
                 const loginWithGoogle = async () => {
                     try {
                         loginError.value = '';
-                        if (typeof __initial_auth_token !== 'undefined') {
-                             await signInAnonymously(auth);
-                        } else {
-                            const provider = new GoogleAuthProvider();
-                            await signInWithPopup(auth, provider);
-                        }
-                    } catch (error) {
-                        console.error(error);
-                        loginError.value = "登入失敗: " + error.message;
-                    }
+                        if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } 
+                        else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); }
+                    } catch (error) { loginError.value = "登入失敗: " + error.message; }
                 };
 
                 const logout = () => signOut(auth);
 
-                // --- Profile Functions ---
+                // --- 1. Global Data (Trips List & User Settings) ---
+                const fetchGlobalData = () => {
+                    // Fetch User Settings (Profile Backup)
+                    const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                    unsubSettings = onSnapshot(settingsRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            settings.value = docSnap.data();
+                            // If Auth profile is empty but we have data, sync it locally
+                            if (!user.value.displayName && settings.value.displayName) user.value.displayName = settings.value.displayName;
+                            if (!user.value.photoURL && settings.value.photoURL) user.value.photoURL = settings.value.photoURL;
+                        }
+                    });
+
+                    // Fetch Trips List
+                    const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
+                    unsubTrips = onSnapshot(tripsRef, (snapshot) => {
+                        trips.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                };
+
+                // --- 2. Trip Actions ---
+                const onFabClick = () => {
+                    if (currentView.value === 'dashboard') {
+                        // Add New Trip
+                        tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我' };
+                        currentTrip.value = {}; // Clear current trip for new creation
+                        showTripModal.value = true;
+                    } else {
+                        // Add Item (Schedule/Expense)
+                        openAddItemModal();
+                    }
+                };
+
+                const saveTrip = async () => {
+                    const companionsArr = tripForm.value.companions.split(/[,，]/).map(u => u.trim()).filter(u => u);
+                    if (!tripForm.value.destination) return alert('請輸入目的地');
+                    
+                    const tripData = {
+                        destination: tripForm.value.destination,
+                        currency: tripForm.value.currency,
+                        companions: companionsArr.length ? companionsArr : ['我'],
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    try {
+                        const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
+                        if (currentTrip.value.id) {
+                            // Update existing
+                            await updateDoc(doc(tripsRef, currentTrip.value.id), tripData);
+                            currentTrip.value = { ...currentTrip.value, ...tripData };
+                        } else {
+                            // Create new
+                            await addDoc(tripsRef, tripData);
+                        }
+                        showTripModal.value = false;
+                    } catch (e) { alert("儲存失敗"); }
+                };
+
+                const enterTrip = (trip) => {
+                    currentTrip.value = trip;
+                    currentView.value = 'planner';
+                    activeTab.value = 'schedule'; // reset tab
+                    
+                    // Fetch Sub-collections
+                    const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', trip.id);
+                    
+                    unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (snapshot) => {
+                        schedule.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                    unsubExpenses = onSnapshot(collection(tripDocRef, 'expenses'), (snapshot) => {
+                        expenses.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                };
+
+                const exitTrip = () => {
+                    currentView.value = 'dashboard';
+                    currentTrip.value = {};
+                    schedule.value = [];
+                    expenses.value = [];
+                    // Unsubscribe sub-listeners
+                    if (unsubSchedule) unsubSchedule();
+                    if (unsubExpenses) unsubExpenses();
+                };
+
+                const openTripSettings = () => {
+                    tripForm.value = {
+                        destination: currentTrip.value.destination,
+                        currency: currentTrip.value.currency,
+                        companions: currentTrip.value.companions.join(', ')
+                    };
+                    showTripModal.value = true;
+                };
+
+                // --- 3. Profile Actions ---
                 const openEditProfile = () => {
                     profileForm.value = {
                         displayName: settings.value.displayName || user.value.displayName || '',
@@ -594,13 +582,11 @@
                 const saveProfile = async () => {
                     if (!user.value) return;
                     try {
-                        // 1. 更新 Firebase Auth (保留這步是好的，因為這也是標準流程)
                         await updateProfile(user.value, {
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         });
                         
-                        // 2. 將資料也寫入 Firestore 設定檔 (使用 merge 以免覆蓋其他設定)
                         const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                         await setDoc(ref, {
                             displayName: profileForm.value.displayName,
@@ -608,229 +594,119 @@
                         }, { merge: true });
 
                         showProfileModal.value = false;
-                    } catch (e) {
-                        alert("更新失敗: " + e.message);
-                    }
+                    } catch (e) { alert("更新失敗: " + e.message); }
                 };
 
-                // --- Selection Logic ---
-                const selectDestination = (country) => {
-                    destinationInput.value = country.name;
-                    currencyInput.value = country.currency;
-                    showDestinationModal.value = false;
-                };
-
-                let unsubSchedule = null;
-                let unsubExpenses = null;
-                let unsubSettings = null;
-
-                const fetchData = () => {
-                    if (!user.value) return;
-
-                    // 1. Settings
-                    const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
-                    unsubSettings = onSnapshot(settingsRef, (docSnap) => {
-                        if (docSnap.exists()) {
-                            settings.value = docSnap.data();
-                            settingsInput.value = settings.value.users ? settings.value.users.join(', ') : '';
-                            destinationInput.value = settings.value.destination || '東京';
-                            currencyInput.value = settings.value.currency || '¥';
-                        } else {
-                            setDoc(settingsRef, settings.value);
-                        }
-                    });
-
-                    // 2. Schedule
-                    const scheduleRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'schedule');
-                    unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
-                        schedule.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                    });
-
-                    // 3. Expenses
-                    const expensesRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'expenses');
-                    unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
-                        expenses.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                    });
-                };
-
-                const currentDayEvents = computed(() => {
-                    return schedule.value.filter(e => e.dayIndex === currentDayIndex.value);
-                });
-
-                const sortedEvents = computed(() => {
-                    return [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time));
-                });
-
-                const sortedExpenses = computed(() => {
-                    return [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date));
-                });
-
-                const totalExpense = computed(() => {
-                    return expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-                });
-
-                const averageExpense = computed(() => {
-                    if (!settings.value.users || settings.value.users.length === 0) return 0;
-                    return Math.round(totalExpense.value / settings.value.users.length);
-                });
-
-                const debts = computed(() => {
-                    const usersList = settings.value.users || [];
-                    if (usersList.length < 2) return [];
-                    
-                    const balances = {};
-                    usersList.forEach(u => balances[u] = 0);
-
-                    expenses.value.forEach(exp => {
-                        const amount = Number(exp.amount);
-                        const payer = exp.payer;
-                        if (!usersList.includes(payer)) return;
-
-                        const split = amount / usersList.length;
-                        balances[payer] += amount;
-                        usersList.forEach(u => balances[u] -= split);
-                    });
-
-                    let debtors = [];
-                    let creditors = [];
-                    for (const [u, amount] of Object.entries(balances)) {
-                        if (amount < -1) debtors.push({ user: u, amount });
-                        if (amount > 1) creditors.push({ user: u, amount });
-                    }
-
-                    debtors.sort((a, b) => a.amount - b.amount);
-                    creditors.sort((a, b) => b.amount - a.amount);
-
-                    const result = [];
-                    let i = 0, j = 0;
-                    while (i < debtors.length && j < creditors.length) {
-                        let debtor = debtors[i];
-                        let creditor = creditors[j];
-                        let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
-                        
-                        result.push({ from: debtor.user, to: creditor.user, amount: Math.round(amount) });
-
-                        debtor.amount += amount;
-                        creditor.amount -= amount;
-
-                        if (Math.abs(debtor.amount) < 1) i++;
-                        if (creditor.amount < 1) j++;
-                    }
-                    return result;
-                });
-
-                const addDay = () => {
-                    days.value.push(`Day ${days.value.length + 1}`);
-                };
-
-                const openAddModal = () => {
+                // --- 4. Schedule/Expense Items Logic ---
+                const openAddItemModal = () => {
                     isEditing.value = false;
                     currentEditId.value = null;
                     form.value = { time: '09:00', title: '', location: '', note: '' };
-                    expenseForm.value = { title: '', amount: '', payer: settings.value.users[0] || '' };
-                    showModal.value = true;
+                    expenseForm.value = { title: '', amount: '', payer: currentTrip.value.companions[0] || '' };
+                    showItemModal.value = true;
                 };
 
                 const editEvent = (event) => {
                     isEditing.value = true;
                     currentEditId.value = event.id;
                     form.value = { ...event };
-                    showModal.value = true;
+                    showItemModal.value = true;
                 };
 
-                const closeModal = () => showModal.value = false;
-
-                const submitForm = async () => {
-                    if (!user.value) return;
+                const submitItem = async () => {
                     submitting.value = true;
-                    
+                    const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
                     try {
                         if (activeTab.value === 'schedule') {
                             if (!form.value.title) throw new Error("請輸入標題");
-                            const coll = collection(db, 'artifacts', appId, 'users', user.value.uid, 'schedule');
-                            
-                            const data = {
-                                ...form.value,
-                                dayIndex: currentDayIndex.value,
-                                updatedAt: new Date().toISOString()
-                            };
-
-                            if (isEditing.value && currentEditId.value) {
-                                await updateDoc(doc(coll, currentEditId.value), data);
-                            } else {
-                                await addDoc(coll, data);
-                            }
+                            const coll = collection(tripDocRef, 'schedule');
+                            const data = { ...form.value, dayIndex: currentDayIndex.value, updatedAt: new Date().toISOString() };
+                            if (isEditing.value && currentEditId.value) await updateDoc(doc(coll, currentEditId.value), data);
+                            else await addDoc(coll, data);
                         } else {
                             if (!expenseForm.value.title || !expenseForm.value.amount) throw new Error("資料不完整");
-                            const coll = collection(db, 'artifacts', appId, 'users', user.value.uid, 'expenses');
-                            
-                            const data = {
-                                ...expenseForm.value,
-                                date: new Date().toISOString()
-                            };
-                            
+                            const coll = collection(tripDocRef, 'expenses');
+                            const data = { ...expenseForm.value, date: new Date().toISOString() };
                             await addDoc(coll, data);
                         }
-                        closeModal();
-                    } catch (e) {
-                        alert(e.message);
-                    } finally {
-                        submitting.value = false;
-                    }
+                        showItemModal.value = false;
+                    } catch (e) { alert(e.message); } finally { submitting.value = false; }
                 };
 
                 const deleteItem = async (type, id) => {
                     if (!confirm('確定刪除？')) return;
+                    const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', currentTrip.value.id);
                     try {
-                        const collStr = type === 'schedule' ? 'schedule' : 'expenses';
-                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.value.uid, collStr, id));
-                    } catch (e) {
-                        alert("刪除失敗");
-                    }
+                        await deleteDoc(doc(tripDocRef, type === 'schedule' ? 'schedule' : 'expenses', id));
+                    } catch (e) { alert("刪除失敗"); }
                 };
 
-                const saveSettings = async () => {
-                    const newUsers = settingsInput.value.split(/[,，]/).map(u => u.trim()).filter(u => u);
-                    if (newUsers.length === 0) return alert('至少需要一位旅伴');
-                    
-                    try {
-                        const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
-                        // 這裡也使用 merge: true，確保不會把個人資料 displayName/photoURL 洗掉
-                        await setDoc(ref, { 
-                            users: newUsers,
-                            destination: destinationInput.value || '我的旅程',
-                            currency: currencyInput.value || '$'
-                        }, { merge: true });
-                        
-                        showSettings.value = false;
-                    } catch (e) {
-                        alert("儲存失敗: " + e.message);
-                    }
-                };
-
-                const openMap = (loc) => {
-                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+                // --- Helpers ---
+                const selectDestination = (country) => {
+                    tripForm.value.destination = country.name;
+                    tripForm.value.currency = country.currency;
+                    showDestinationModal.value = false;
                 };
                 
+                const addDay = () => days.value.push(`Day ${days.value.length + 1}`);
+                const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => {
                     const d = new Date(iso);
                     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
                 };
 
+                // --- Computeds ---
+                const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
+                const sortedEvents = computed(() => [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time)));
+                const sortedExpenses = computed(() => [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date)));
+                const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+                const averageExpense = computed(() => {
+                    if (!currentTrip.value.companions || currentTrip.value.companions.length === 0) return 0;
+                    return Math.round(totalExpense.value / currentTrip.value.companions.length);
+                });
+                const debts = computed(() => {
+                    const usersList = currentTrip.value.companions || [];
+                    if (usersList.length < 2) return [];
+                    const balances = {}; usersList.forEach(u => balances[u] = 0);
+                    expenses.value.forEach(exp => {
+                        const amount = Number(exp.amount);
+                        if (usersList.includes(exp.payer)) {
+                            const split = amount / usersList.length;
+                            balances[exp.payer] += amount;
+                            usersList.forEach(u => balances[u] -= split);
+                        }
+                    });
+                    let debtors = [], creditors = [];
+                    for (const [u, amount] of Object.entries(balances)) {
+                        if (amount < -1) debtors.push({ user: u, amount });
+                        if (amount > 1) creditors.push({ user: u, amount });
+                    }
+                    debtors.sort((a, b) => a.amount - b.amount); creditors.sort((a, b) => b.amount - a.amount);
+                    const result = []; let i = 0, j = 0;
+                    while (i < debtors.length && j < creditors.length) {
+                        let debtor = debtors[i], creditor = creditors[j];
+                        let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+                        result.push({ from: debtor.user, to: creditor.user, amount: Math.round(amount) });
+                        debtor.amount += amount; creditor.amount -= amount;
+                        if (Math.abs(debtor.amount) < 1) i++; if (creditor.amount < 1) j++;
+                    }
+                    return result;
+                });
+
                 return {
                     user, loading, loginError,
-                    activeTab, showModal, showSettings, showUserMenu, showProfileModal, isEditing, submitting,
-                    // Selection
-                    showDestinationModal, activeRegion, regions, selectDestination,
-                    days, currentDayIndex,
-                    schedule, expenses, settings, 
-                    settingsInput, destinationInput, currencyInput,
-                    profileForm,
-                    form, expenseForm,
+                    currentView, trips, currentTrip,
+                    activeTab, days, currentDayIndex,
+                    showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
+                    activeRegion, regions, selectDestination,
+                    profileForm, tripForm, form, expenseForm,
+                    schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
                     loginWithGoogle, logout,
-                    addDay, openAddModal, editEvent, submitForm, deleteItem, closeModal,
-                    saveSettings, openMap, formatDate, openEditProfile, saveProfile
+                    onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
+                    openAddItemModal, editEvent, submitItem, deleteItem,
+                    openEditProfile, saveProfile,
+                    addDay, openMap, formatDate
                 };
             }
         }).mount('#app');
