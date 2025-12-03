@@ -87,7 +87,7 @@
                             <span v-else>{{ currentTrip.destination || '未命名旅程' }}</span>
                             <span v-if="loading" class="ml-2 loader w-4 h-4 border-2"></span>
                         </h1>
-                        </div>
+                    </div>
                 </div>
                 
                 <div class="flex items-center gap-3">
@@ -118,6 +118,12 @@
                         <div class="relative z-10 flex justify-between items-start">
                             <div>
                                 <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
+                                <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
+                                    <i class="far fa-calendar-alt mr-1.5"></i> 
+                                    {{ trip.startDate.replace(/-/g, '/') }} 
+                                    <span v-if="trip.endDate" class="mx-1">~</span> 
+                                    {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
+                                </p>
                                 <p class="text-xs text-gray-500 flex items-center gap-1">
                                     <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
                                     <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
@@ -285,6 +291,16 @@
                                     <i class="fas fa-chevron-down absolute right-3 top-4 text-gray-400 text-xs pointer-events-none"></i>
                                 </div>
                             </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅遊日期</label>
+                                <div class="flex items-center gap-2">
+                                    <input v-model="tripForm.startDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary text-sm">
+                                    <span class="text-gray-400 font-bold">-</span>
+                                    <input v-model="tripForm.endDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary text-sm">
+                                </div>
+                            </div>
+
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label>
                                 <div class="flex gap-2">
@@ -443,8 +459,8 @@
                 const showUserMenu = ref(false); 
                 const showProfileModal = ref(false);
                 const showDestinationModal = ref(false);
-                const showLogoutConfirm = ref(false); // New modal state
-                const copyToast = ref(''); // State for copy feedback
+                const showLogoutConfirm = ref(false);
+                const copyToast = ref('');
                 
                 // Forms & State
                 const activeRegion = ref('東');
@@ -455,11 +471,12 @@
                 // Data Containers
                 const schedule = ref([]);
                 const expenses = ref([]);
-                const settings = ref({}); // Global user settings (profile backup)
+                const settings = ref({});
 
                 // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const tripForm = ref({ destination: '', currency: '', companions: '' });
+                // Updated: Added startDate and endDate
+                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '' });
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
 
@@ -518,18 +535,15 @@
 
                 // --- 1. Global Data (Trips List & User Settings) ---
                 const fetchGlobalData = () => {
-                    // Fetch User Settings (Profile Backup)
                     const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                     unsubSettings = onSnapshot(settingsRef, (docSnap) => {
                         if (docSnap.exists()) {
                             settings.value = docSnap.data();
-                            // If Auth profile is empty but we have data, sync it locally
                             if (!user.value.displayName && settings.value.displayName) user.value.displayName = settings.value.displayName;
                             if (!user.value.photoURL && settings.value.photoURL) user.value.photoURL = settings.value.photoURL;
                         }
                     });
 
-                    // Fetch Trips List
                     const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
                     unsubTrips = onSnapshot(tripsRef, (snapshot) => {
                         trips.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -539,12 +553,11 @@
                 // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
-                        // Add New Trip
-                        tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我' };
-                        currentTrip.value = {}; // Clear current trip for new creation
+                        // Updated: Reset startDate and endDate
+                        tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '' };
+                        currentTrip.value = {}; 
                         showTripModal.value = true;
                     } else {
-                        // Add Item (Schedule/Expense)
                         openAddItemModal();
                     }
                 };
@@ -557,17 +570,18 @@
                         destination: tripForm.value.destination,
                         currency: tripForm.value.currency,
                         companions: companionsArr.length ? companionsArr : ['我'],
+                        // Updated: Save dates
+                        startDate: tripForm.value.startDate,
+                        endDate: tripForm.value.endDate,
                         updatedAt: new Date().toISOString()
                     };
 
                     try {
                         const tripsRef = collection(db, 'artifacts', appId, 'users', user.value.uid, 'trips');
                         if (currentTrip.value.id) {
-                            // Update existing
                             await updateDoc(doc(tripsRef, currentTrip.value.id), tripData);
                             currentTrip.value = { ...currentTrip.value, ...tripData };
                         } else {
-                            // Create new
                             await addDoc(tripsRef, tripData);
                         }
                         showTripModal.value = false;
@@ -577,9 +591,8 @@
                 const enterTrip = (trip) => {
                     currentTrip.value = trip;
                     currentView.value = 'planner';
-                    activeTab.value = 'schedule'; // reset tab
+                    activeTab.value = 'schedule';
                     
-                    // Fetch Sub-collections
                     const tripDocRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'trips', trip.id);
                     
                     unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (snapshot) => {
@@ -595,7 +608,6 @@
                     currentTrip.value = {};
                     schedule.value = [];
                     expenses.value = [];
-                    // Unsubscribe sub-listeners
                     if (unsubSchedule) unsubSchedule();
                     if (unsubExpenses) unsubExpenses();
                 };
@@ -604,7 +616,10 @@
                     tripForm.value = {
                         destination: currentTrip.value.destination,
                         currency: currentTrip.value.currency,
-                        companions: currentTrip.value.companions.join(', ')
+                        companions: currentTrip.value.companions.join(', '),
+                        // Updated: Load existing dates
+                        startDate: currentTrip.value.startDate || '',
+                        endDate: currentTrip.value.endDate || ''
                     };
                     showTripModal.value = true;
                 };
@@ -738,12 +753,12 @@
                     currentView, trips, currentTrip,
                     activeTab, days, currentDayIndex,
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
-                    showLogoutConfirm, copyToast, // New refs
+                    showLogoutConfirm, copyToast,
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
-                    loginWithGoogle, confirmLogout, copyUid, // New/Modified functions
+                    loginWithGoogle, confirmLogout, copyUid,
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
                     openEditProfile, saveProfile,
