@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Travel Pro 🌍 共旅版</title>
+    <title>Travel Pro 🌍</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -16,20 +16,16 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
-        
-        /* Invite Overlay Pattern */
-        .invite-pattern {
-            background-color: #4f46e5;
-            background-image: radial-gradient(#6366f1 1px, transparent 1px);
-            background-size: 10px 10px;
-        }
+        .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+        .slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); }
     </style>
     
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { primary: '#6366f1', secondary: '#ec4899' }
+                    colors: { primary: '#6366f1', secondary: '#ec4899' },
+                    padding: { 'safe': 'env(safe-area-inset-bottom)' }
                 }
             }
         }
@@ -43,17 +39,17 @@
             <div v-if="loading" class="absolute inset-0 z-[100] bg-white flex items-center justify-center">
                 <div class="flex items-center gap-4 px-6 py-4 bg-white rounded-2xl">
                     <div class="w-10 h-10 rounded-full border-[4px] border-t-indigo-500 border-r-pink-500 border-b-yellow-500 border-l-blue-400 animate-spin"></div>
-                    <span class="text-gray-600 font-bold tracking-widest text-lg">載入中</span>
+                    <span class="text-gray-600 font-bold tracking-widest text-lg">正在載入</span>
                 </div>
             </div>
         </Transition>
 
         <div v-if="!user && !loading" class="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center">
             <div class="w-24 h-24 bg-gradient-to-tr from-primary to-purple-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl transform rotate-3">
-                <i class="fas fa-paper-plane text-4xl text-white"></i>
+                <i class="fas fa-globe-americas text-4xl text-white"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Travel Pro 共旅</h1>
-            <p class="text-gray-500 mb-10">邀請朋友一起規劃行程與記帳</p>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Travel Pro 自由行</h1>
+            <p class="text-gray-500 mb-10">雲端同步你的行程與帳務</p>
             
             <button @click="loginWithGoogle" class="flex items-center justify-center w-full bg-white border border-gray-300 rounded-xl py-3.5 px-4 shadow-sm hover:bg-gray-50 transition active:scale-95">
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6 mr-3" alt="Google">
@@ -92,69 +88,72 @@
             <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50 flex flex-col">
                 
                 <div v-if="currentView === 'dashboard'" class="space-y-4 flex-1">
-                    
                     <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
-                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">🌍</div>
-                        <p>尚無旅程</p>
-                        <p class="text-xs mt-2">點擊右下角「+」建立或等待朋友邀請</p>
+                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
+                        <p>還沒有任何旅程</p>
+                        <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
                     </div>
 
-                    <div v-for="trip in trips" :key="trip.id" 
-                         @click="enterTrip(trip)" 
+                    <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
                          class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
                         
-                        <div v-if="trip.isInvite" class="absolute inset-0 z-20 invite-pattern flex flex-col items-center justify-center text-white p-4" @click.stop>
-                            <p class="font-bold text-lg mb-1">📬 收到旅程邀請</p>
-                            <p class="text-sm opacity-80 mb-4">{{ trip.destination }} · {{ trip.ownerName || '朋友' }} 邀請您</p>
-                            <div class="flex gap-4">
-                                <button @click="respondToInvite(trip, false)" class="w-12 h-12 rounded-full bg-white text-red-500 hover:bg-red-50 flex items-center justify-center shadow-lg transform transition hover:scale-110">
-                                    <i class="fas fa-times text-xl"></i>
-                                </button>
-                                <button @click="respondToInvite(trip, true)" class="w-12 h-12 rounded-full bg-white text-green-500 hover:bg-green-50 flex items-center justify-center shadow-lg transform transition hover:scale-110">
-                                    <i class="fas fa-check text-xl"></i>
-                                </button>
-                            </div>
+                        <div v-if="trip.isInvite" class="absolute inset-0 z-20 bg-indigo-600/95 flex flex-col items-center justify-center text-white" @click.stop>
+                             <p class="font-bold text-lg mb-1">📬 收到旅程邀請</p>
+                             <p class="text-xs opacity-80 mb-4">{{ trip.destination }}</p>
+                             <div class="flex gap-4">
+                                <button @click="respondToInvite(trip, false)" class="px-4 py-2 bg-white/20 rounded-full hover:bg-white/30 text-sm">拒絕</button>
+                                <button @click="respondToInvite(trip, true)" class="px-4 py-2 bg-white text-indigo-600 font-bold rounded-full hover:bg-gray-100 text-sm">加入</button>
+                             </div>
                         </div>
 
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
+                        
                         <div class="relative z-10 flex justify-between items-start">
                             <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <h3 class="text-xl font-bold text-gray-800">{{ trip.destination }}</h3>
-                                    <span v-if="trip.isOwner" class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded font-bold">團主</span>
-                                </div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
                                 <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
                                     <i class="far fa-calendar-alt mr-1.5"></i> 
                                     {{ trip.startDate.replace(/-/g, '/') }} 
                                     <span v-if="trip.endDate" class="mx-1">~</span> 
                                     {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
                                 </p>
-                                <div class="flex -space-x-1.5 mt-2">
-                                    <div v-for="(m, i) in (trip.members || []).slice(0, 5)" :key="i" 
-                                         class="w-6 h-6 rounded-full border-2 border-white bg-gray-200 overflow-hidden" 
-                                         :title="m.name">
-                                        <img :src="m.photo || 'https://ui-avatars.com/api/?name='+m.name" class="w-full h-full object-cover">
-                                    </div>
-                                    <div v-if="(trip.members || []).length > 5" class="w-6 h-6 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[8px] text-gray-500">
-                                        +{{ trip.members.length - 5 }}
-                                    </div>
-                                </div>
+                                <p class="text-xs text-gray-500 flex items-center gap-1">
+                                    <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
+                                    <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
+                                </p>
                             </div>
                             <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
                         </div>
                     </div>
 
-                    <div v-if="trips.filter(t => !t.isInvite).length > 0" class="mt-6 mb-20">
+                    <div v-if="trips.length > 0" class="mt-6 mb-20">
                         <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden">
-                            <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl"><i class="fas fa-plane-departure"></i></div>
-                            <h3 class="text-sm font-bold opacity-90 mb-4 flex items-center"><i class="fas fa-passport mr-2"></i> 旅遊生涯統計</h3>
+                            <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl">
+                                <i class="fas fa-plane-departure"></i>
+                            </div>
+                            
+                            <h3 class="text-sm font-bold opacity-90 mb-4 flex items-center">
+                                <i class="fas fa-passport mr-2"></i> 旅遊生涯統計
+                            </h3>
+                            
                             <div class="flex justify-between items-center relative z-10">
-                                <div class="text-center"><p class="text-2xl font-bold">{{ userStats.totalTrips }}</p><p class="text-[10px] opacity-75">旅程</p></div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold">{{ userStats.totalTrips }}</p>
+                                    <p class="text-[10px] opacity-75">總旅程</p>
+                                </div>
                                 <div class="w-px h-8 bg-white/20"></div>
-                                <div class="text-center"><p class="text-2xl font-bold">{{ userStats.totalDays }}</p><p class="text-[10px] opacity-75">天數</p></div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold">{{ userStats.totalDays }}</p>
+                                    <p class="text-[10px] opacity-75">總天數</p>
+                                </div>
                                 <div class="w-px h-8 bg-white/20"></div>
-                                <div class="text-center"><p class="text-2xl font-bold">{{ userStats.uniquePlaces }}</p><p class="text-[10px] opacity-75">地點</p></div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold">{{ userStats.uniquePlaces }}</p>
+                                    <p class="text-[10px] opacity-75">探索地點</p>
+                                </div>
                             </div>
                         </div>
+                        <p class="text-center text-xs text-gray-300 mt-3 italic">"旅行是唯一讓你花了錢，卻變得更富有的事物"</p>
                     </div>
                 </div>
 
@@ -210,8 +209,8 @@
                                     <p class="font-mono text-lg">{{ currentTrip.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
                                 </div>
                                 <div class="flex -space-x-2">
-                                    <div v-for="(m, i) in (currentTrip.members || [])" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 overflow-hidden" :title="m.name">
-                                        <img :src="m.photo || 'https://ui-avatars.com/api/?name='+m.name" class="w-full h-full object-cover">
+                                    <div v-for="(u, i) in (currentTrip.companions || [])" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
+                                        {{ u.charAt(0) }}
                                     </div>
                                 </div>
                             </div>
@@ -224,15 +223,20 @@
                                     {{ currentTrip.budget > 0 ? '調整' : '設定預算' }}
                                 </button>
                             </div>
+                            
                             <div v-if="currentTrip.budget > 0">
                                 <div class="flex justify-between text-xs text-gray-500 mb-1">
                                     <span>已用 {{ Math.round(budgetPercentage) }}%</span>
                                     <span :class="remainingBudget < 0 ? 'text-red-500 font-bold' : ''">剩餘 {{ currentTrip.currency }}{{ remainingBudget.toLocaleString() }}</span>
                                 </div>
                                 <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                    <div class="h-2.5 rounded-full transition-all duration-500" :class="budgetColor" :style="{ width: Math.min(budgetPercentage, 100) + '%' }"></div>
+                                    <div class="h-2.5 rounded-full transition-all duration-500" 
+                                        :class="budgetColor"
+                                        :style="{ width: Math.min(budgetPercentage, 100) + '%' }"></div>
                                 </div>
+                                <p class="text-xs text-gray-300 mt-2 text-right">總預算 {{ currentTrip.currency }}{{ Number(currentTrip.budget).toLocaleString() }}</p>
                             </div>
+                            
                             <div v-else class="text-center py-2">
                                 <p class="text-xs text-gray-400 mb-2">尚未設定旅遊預算</p>
                                 <button @click="openTripSettings" class="w-full py-2 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-100 border border-dashed border-gray-300">
@@ -258,7 +262,7 @@
                         <div v-if="sortedExpenses.length > 0" class="space-y-3">
                             <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0 overflow-hidden">
+                                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
                                         {{ expense.payer ? expense.payer.charAt(0) : '?' }}
                                     </div>
                                     <div>
@@ -271,6 +275,10 @@
                                     <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
                                 </div>
                             </div>
+                        </div>
+                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">💸</div>
+                            <p>請點選右下角+ 添加您的第一筆支出吧！</p>
                         </div>
                     </div>
                 </div>
@@ -307,57 +315,35 @@
                                 </div>
                             </div>
 
-                            <div class="flex gap-3">
-                                <div class="flex-1">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">貨幣</label>
-                                    <input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary text-center">
-                                </div>
-                                <div class="flex-[2]">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">預算上限</label>
-                                    <input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                                </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">貨幣符號</label>
+                                <input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">預算上限</label>
+                                <input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
                             </div>
 
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">旅伴</label>
-                                <div class="flex flex-wrap gap-2 items-center">
-                                    <div v-for="member in tripForm.members" :key="member.uid" class="relative group">
-                                        <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full border border-gray-200 object-cover" :title="member.name">
-                                        <div class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5" v-if="member.uid === user.uid">
-                                            <i class="fas fa-star text-[10px] text-yellow-400"></i>
-                                        </div>
-                                    </div>
-                                    
-                                    <div v-for="email in tripForm.pendingEmails" :key="email" class="relative w-10 h-10 rounded-full bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center group" title="邀請中">
-                                        <span class="text-xs text-gray-400 font-bold">?</span>
-                                        <button @click="cancelInvite(email)" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition"><i class="fas fa-times"></i></button>
-                                    </div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">旅伴名單 (逗號分隔)</label>
+                                <input v-model="tripForm.companions" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
 
-                                    <button @click="showInviteModal = true" class="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-500 flex items-center justify-center hover:bg-indigo-100 transition">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
+                            <div v-if="currentTrip.id" class="pt-4 border-t border-gray-100">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">邀請 Email (對方需登入過)</label>
+                                <div class="flex gap-2">
+                                    <input v-model="inviteEmail" type="email" placeholder="friend@gmail.com" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-primary">
+                                    <button @click="sendInvite" class="bg-indigo-100 text-indigo-600 px-3 rounded-lg text-sm font-bold hover:bg-indigo-200">邀請</button>
                                 </div>
-                                <p class="text-[10px] text-gray-400 mt-2" v-if="tripForm.pendingEmails.length > 0">
-                                    等待 {{ tripForm.pendingEmails.length }} 位朋友接受邀請...
-                                </p>
+                                <div v-if="tripForm.pendingEmails && tripForm.pendingEmails.length" class="mt-2 flex flex-wrap gap-1">
+                                    <span v-for="email in tripForm.pendingEmails" :key="email" class="bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded-full">
+                                        {{ email }} <span class="text-gray-300">...</span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <button @click="saveTrip" class="w-full py-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg shadow-gray-200">
-                            {{ currentTrip.id ? '儲存變更' : '建立旅程' }}
-                        </button>
-                    </div>
-                </div>
-            </Transition>
-
-            <Transition name="fade">
-                <div v-if="showInviteModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showInviteModal = false">
-                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5">
-                        <h3 class="text-lg font-bold text-gray-800 mb-4">邀請朋友</h3>
-                        <input v-model="inviteEmail" type="email" placeholder="朋友的 Email" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary mb-4">
-                        <div class="flex gap-3">
-                            <button @click="showInviteModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold">取消</button>
-                            <button @click="addInvite" class="flex-1 py-2 bg-primary text-white rounded-xl font-bold shadow-lg shadow-indigo-200">發送</button>
-                        </div>
+                        <button @click="saveTrip" class="w-full py-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg shadow-gray-200">儲存旅程</button>
                     </div>
                 </div>
             </Transition>
@@ -382,71 +368,31 @@
                 </div>
             </Transition>
 
-            <Transition name="slide-up">
-                <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end justify-center pointer-events-none">
-                    <div class="bg-white w-full max-w-md rounded-t-3xl p-6 shadow-2xl pointer-events-auto border-t border-gray-100">
-                        <div class="flex justify-between items-center mb-6">
-                            <div class="flex gap-4">
-                                <button @click="activeTab = 'schedule'; showItemModal = true" :class="activeTab === 'schedule' ? 'text-primary font-bold border-b-2 border-primary' : 'text-gray-400'" class="pb-1">行程</button>
-                                <button @click="activeTab = 'expense'; showItemModal = true" :class="activeTab === 'expense' ? 'text-secondary font-bold border-b-2 border-secondary' : 'text-gray-400'" class="pb-1">支出</button>
-                            </div>
-                            <button @click="showItemModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-                        </div>
-
-                        <div v-if="activeTab === 'schedule'" class="space-y-4">
-                            <div class="flex gap-3">
-                                <input v-model="form.time" type="time" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-primary font-mono">
-                                <input v-model="form.title" type="text" placeholder="行程名稱 (必填)" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-primary">
-                            </div>
-                            <div class="relative">
-                                <i class="fas fa-map-marker-alt absolute left-4 top-4 text-gray-400"></i>
-                                <input v-model="form.location" type="text" placeholder="地點 / Google Maps 連結" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-10 outline-none focus:border-primary">
-                            </div>
-                            <textarea v-model="form.note" placeholder="備註..." rows="3" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-primary resize-none"></textarea>
-                        </div>
-
-                        <div v-else class="space-y-4">
-                            <input v-model="expenseForm.title" type="text" placeholder="支出項目 (如: 晚餐)" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-secondary">
-                            <div class="relative">
-                                <span class="absolute left-4 top-3 text-gray-400 font-bold">{{ currentTrip.currency || '$' }}</span>
-                                <input v-model="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-10 outline-none focus:border-secondary font-mono text-lg">
-                            </div>
-                            <div class="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
-                                <span class="text-xs text-gray-400 shrink-0">付款人:</span>
-                                <button v-for="m in (currentTrip.members || [])" :key="m.name" 
-                                        @click="expenseForm.payer = m.name"
-                                        :class="expenseForm.payer === m.name ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600'"
-                                        class="px-3 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap">
-                                    {{ m.name }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <button @click="submitItem" class="w-full mt-6 py-3 rounded-xl text-white font-bold shadow-lg active:scale-95 transition" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200' : 'bg-secondary shadow-pink-200'">
-                            <span v-if="submitting"><i class="fas fa-spinner fa-spin"></i></span>
-                            <span v-else>儲存</span>
-                        </button>
-                    </div>
-                </div>
-            </Transition>
-
             <Transition name="fade">
                 <div v-if="showUserMenu" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showUserMenu = false">
                     <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
-                         <div class="flex justify-end mb-2"><button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button></div>
+                         <div class="flex justify-end mb-2">
+                            <button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
                         <div class="flex flex-col items-center mb-6">
                              <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
                              <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
                              <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
-                             <div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group">
-                                <span class="text-[10px] font-mono text-gray-500 truncate max-w-[200px]">UID: {{ user.uid }}</span>
+                             
+                             <div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID">
+                                <span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span>
                                 <i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i>
                              </div>
                              <p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p>
+
                         </div>
                         <div class="flex flex-col gap-3">
-                            <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2"><i class="fas fa-edit"></i> 編輯檔案</button>
-                            <button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> 登出帳號</button>
+                            <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-edit"></i> 編輯檔案
+                            </button>
+                            <button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-sign-out-alt"></i> 登出帳號
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -455,7 +401,9 @@
             <Transition name="fade">
                 <div v-if="showConfirmModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false">
                     <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
-                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
                         <h3 class="text-lg font-bold text-gray-800 mb-2">確認操作</h3>
                         <p class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</p>
                         <div class="flex gap-3">
@@ -469,10 +417,14 @@
             <Transition name="fade">
                 <div v-if="showErrorModal" class="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showErrorModal = false">
                     <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
-                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation"></i></div>
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl">
+                            <i class="fas fa-exclamation"></i>
+                        </div>
                         <h3 class="text-lg font-bold text-gray-800 mb-2">提示</h3>
                         <p class="text-sm text-gray-500 mb-6">{{ errorMessage }}</p>
-                        <button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">確定</button>
+                        <button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">
+                            確定
+                        </button>
                     </div>
                 </div>
             </Transition>
@@ -498,7 +450,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc, writeBatch, where, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         const secretPart = "FBLe6QQAySZGw4qv3LB8Q"; 
@@ -511,10 +463,13 @@
             appId: "1:837385103808:web:f998a17e4aeccf4b7f8025",
             measurementId: "G-31D354GWVR"
         };
-        const app = initializeApp(userConfig);
+
+        const firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : userConfig;
+        const appId = (typeof __app_id !== 'undefined') ? __app_id : 'default-app';
+
+        const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'default-app'; // Namespace
 
         const { createApp, ref, computed, watch, onMounted } = window.Vue;
 
@@ -531,10 +486,12 @@
                 const loading = ref(true);
                 const loginError = ref('');
                 
-                // State
+                // Views: 'dashboard' (list) or 'planner' (detail)
                 const currentView = ref('dashboard');
-                const trips = ref([]); // Combined list
+                const trips = ref([]);
                 const currentTrip = ref({});
+                
+                // Tabs inside planner
                 const activeTab = ref('schedule');
                 const days = ref([]);
                 const currentDayIndex = ref(0);
@@ -545,45 +502,53 @@
                 const showUserMenu = ref(false); 
                 const showProfileModal = ref(false);
                 const showDestinationModal = ref(false);
-                const showInviteModal = ref(false); // New
-                const showConfirmModal = ref(false);
-                const showErrorModal = ref(false);
                 
-                // Messages & Actions
+                // Generic Confirm Modal
+                const showConfirmModal = ref(false);
                 const confirmMessage = ref('');
-                const pendingAction = ref(null);
+                const pendingAction = ref(null); // Stores the callback
+
+                const showErrorModal = ref(false);
                 const errorMessage = ref('');
                 const copyToast = ref('');
                 const inviteEmail = ref('');
                 
-                // Form Data
+                // Forms & State
                 const activeRegion = ref('東');
                 const isEditing = ref(false);
                 const submitting = ref(false);
                 const currentEditId = ref(null);
                 
+                // Data Containers
                 const schedule = ref([]);
                 const expenses = ref([]);
                 const settings = ref({});
 
+                // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const tripForm = ref({ destination: '', currency: '', members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
+                const tripForm = ref({ destination: '', currency: '', companions: '', pendingEmails: [], startDate: '', endDate: '', budget: 0 }); // Added budget
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
 
                 // Listeners
-                let unsubJoined = null;
-                let unsubInvited = null;
+                let unsubTrips = null;
+                let unsubInvites = null;
                 let unsubSchedule = null;
                 let unsubExpenses = null;
                 let unsubSettings = null;
 
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { await signInAnonymously(auth); }
+                    } 
+                };
+
                 onMounted(() => {
+                    initAuth();
                     onAuthStateChanged(auth, (u) => {
                         user.value = u;
                         loading.value = false;
                         if (u) {
-                            saveUserDirectory(u); // Sync profile
                             fetchGlobalData();
                         } else {
                             trips.value = [];
@@ -593,81 +558,101 @@
                     });
                 });
 
-                // --- 0. Core Logic: User Directory & Auth ---
-                const saveUserDirectory = async (u) => {
-                    // Update user's profile in a public collection so invites work
-                    if(!u.email) return;
-                    try {
-                        const profileRef = doc(db, 'artifacts', appId, 'profiles', u.email);
-                        await setDoc(profileRef, {
-                            uid: u.uid,
-                            email: u.email,
-                            name: u.displayName || 'User',
-                            photo: u.photoURL || `https://ui-avatars.com/api/?name=${u.displayName || 'User'}`
-                        }, { merge: true });
-                        
-                        // Also sync legacy settings spot
-                        const settingsRef = doc(db, 'artifacts', appId, 'users', u.uid, 'settings', 'config');
-                        await setDoc(settingsRef, { displayName: u.displayName, photoURL: u.photoURL }, { merge: true });
-                    } catch(e) { console.error("Profile sync failed", e); }
+                // Helper to trigger custom error modal
+                const showAlert = (msg) => {
+                    errorMessage.value = msg;
+                    showErrorModal.value = true;
+                };
+
+                const confirmAction = (actionType, payload) => {
+                    if (actionType === 'logout') {
+                        confirmMessage.value = '您確定要登出目前的帳號嗎？';
+                        pendingAction.value = async () => {
+                            await signOut(auth);
+                            showUserMenu.value = false;
+                        };
+                    } else if (actionType === 'reduce_days') {
+                        confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？';
+                        pendingAction.value = payload; // The payload is the save logic
+                    }
+                    showConfirmModal.value = true;
+                };
+
+                const executeConfirm = async () => {
+                    if (pendingAction.value) {
+                        await pendingAction.value();
+                        pendingAction.value = null;
+                    }
+                    showConfirmModal.value = false;
                 };
 
                 const loginWithGoogle = async () => {
                     try {
-                        const provider = new GoogleAuthProvider();
-                        await signInWithPopup(auth, provider);
-                    } catch (error) { loginError.value = "登入失敗: " + error.message; }
+                        loginError.value = '';
+                        if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } 
+                        else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); }
+                    } catch (error) { showAlert("登入失敗: " + error.message); }
                 };
 
-                // --- 1. Global Data: Listen to Shared Trips ---
+                const confirmLogout = async () => {
+                    await signOut(auth);
+                    showLogoutConfirm.value = false;
+                    showUserMenu.value = false;
+                };
+
+                const copyUid = async () => {
+                    if (user.value && user.value.uid) {
+                        try {
+                            await navigator.clipboard.writeText(user.value.uid);
+                            copyToast.value = '已複製!';
+                            setTimeout(() => copyToast.value = '', 2000);
+                        } catch (err) {
+                            console.error('Failed to copy!', err);
+                        }
+                    }
+                };
+
+                // --- 1. Global Data (Trips List & User Settings) ---
                 const fetchGlobalData = () => {
-                    // Listen to Settings
-                    unsubSettings = onSnapshot(doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config'), (docSnap) => {
-                        if (docSnap.exists()) settings.value = docSnap.data();
+                    const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                    unsubSettings = onSnapshot(settingsRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            settings.value = docSnap.data();
+                            if (!user.value.displayName && settings.value.displayName) user.value.displayName = settings.value.displayName;
+                            if (!user.value.photoURL && settings.value.photoURL) user.value.photoURL = settings.value.photoURL;
+                        }
                     });
 
-                    // Listen to Trips: TWO Queries (Joined vs Invited)
+                    // NEW: Query global trips where I am a member
                     const tripsRef = collection(db, 'artifacts', appId, 'trips');
+                    const q = query(tripsRef, where('memberUids', 'array-contains', user.value.uid));
                     
-                    // Query 1: I am a member
-                    const qJoined = query(tripsRef, where('memberUids', 'array-contains', user.value.uid));
-                    unsubJoined = onSnapshot(qJoined, (snapshot) => {
-                        updateTripsList('joined', snapshot.docs);
+                    unsubTrips = onSnapshot(q, (snapshot) => {
+                        const myTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        // Merge with invited trips (handled locally via another listener below)
+                        mergeTrips(myTrips, 'owned');
                     });
-
-                    // Query 2: I am invited (by email)
-                    if (user.value.email) {
-                        const qInvited = query(tripsRef, where('pendingEmails', 'array-contains', user.value.email));
-                        unsubInvited = onSnapshot(qInvited, (snapshot) => {
-                            updateTripsList('invited', snapshot.docs);
+                    
+                    // NEW: Query trips where I am invited
+                    if(user.value.email) {
+                        const qInvite = query(tripsRef, where('pendingEmails', 'array-contains', user.value.email));
+                        unsubInvites = onSnapshot(qInvite, (snapshot) => {
+                            const invitedTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data(), isInvite: true }));
+                            mergeTrips(invitedTrips, 'invited');
                         });
                     }
                 };
 
-                // Merge Joined and Invited lists locally
-                let tripsCache = { joined: [], invited: [] };
-                const updateTripsList = (type, docs) => {
-                    const parsed = docs.map(d => ({ 
-                        id: d.id, ...d.data(), 
-                        isInvite: type === 'invited',
-                        isOwner: d.data().ownerId === user.value.uid,
-                        ownerName: (d.data().members || []).find(m => m.uid === d.data().ownerId)?.name || '有人'
-                    }));
-                    tripsCache[type] = parsed;
-                    // Sort by start date desc
-                    trips.value = [...tripsCache.joined, ...tripsCache.invited].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                let tripsCache = { owned: [], invited: [] };
+                const mergeTrips = (data, type) => {
+                    tripsCache[type] = data;
+                    trips.value = [...tripsCache.owned, ...tripsCache.invited].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
                 };
 
-                // --- 2. Trip Actions & Invites ---
+                // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
-                        // Create New Trip
-                        tripForm.value = { 
-                            destination: '', currency: '¥', 
-                            startDate: '', endDate: '', budget: 0,
-                            members: [{ uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL }],
-                            pendingEmails: []
-                        };
+                        tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', pendingEmails: [], startDate: '', endDate: '', budget: 0 };
                         currentTrip.value = {}; 
                         showTripModal.value = true;
                     } else {
@@ -675,43 +660,17 @@
                     }
                 };
 
-                const respondToInvite = async (trip, accept) => {
-                    const tripRef = doc(db, 'artifacts', appId, 'trips', trip.id);
-                    try {
-                        const batch = writeBatch(db);
-                        // Remove from pending
-                        batch.update(tripRef, { pendingEmails: arrayRemove(user.value.email) });
-                        
-                        if (accept) {
-                            // Add to members
-                            const myProfile = {
-                                uid: user.value.uid,
-                                name: settings.value.displayName || user.value.displayName || 'User',
-                                photo: settings.value.photoURL || user.value.photoURL
-                            };
-                            batch.update(tripRef, { 
-                                memberUids: arrayUnion(user.value.uid),
-                                members: arrayUnion(myProfile)
-                            });
-                        }
-                        await batch.commit();
-                    } catch (e) { showAlert("操作失敗: " + e.message); }
-                };
-
-                const addInvite = () => {
-                    if(!inviteEmail.value || !inviteEmail.value.includes('@')) return showAlert("請輸入有效的 Email");
-                    if(tripForm.value.pendingEmails.includes(inviteEmail.value)) return showAlert("已在邀請名單中");
-                    // Simply add string to local array, saveTrip handles DB
-                    tripForm.value.pendingEmails.push(inviteEmail.value);
-                    inviteEmail.value = '';
-                    showInviteModal.value = false;
-                };
-
-                const cancelInvite = (email) => {
-                    tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
+                const calculateDays = (start, end) => {
+                    if (!start || !end) return [];
+                    const s = new Date(start);
+                    const e = new Date(end);
+                    const diffTime = Math.abs(e - s);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+                    return Array.from({length: diffDays}, (_, i) => `Day ${i + 1}`);
                 };
 
                 const saveTrip = async () => {
+                    const companionsArr = tripForm.value.companions.split(/[,，]/).map(u => u.trim()).filter(u => u);
                     if (!tripForm.value.destination) return showAlert('請輸入目的地');
                     if (!tripForm.value.startDate || !tripForm.value.endDate) return showAlert('請選擇旅遊日期');
                     
@@ -720,68 +679,86 @@
                     const tripData = {
                         destination: tripForm.value.destination,
                         currency: tripForm.value.currency,
+                        companions: companionsArr.length ? companionsArr : ['我'],
+                        pendingEmails: tripForm.value.pendingEmails || [],
                         startDate: tripForm.value.startDate,
                         endDate: tripForm.value.endDate,
-                        budget: tripForm.value.budget || 0,
-                        members: tripForm.value.members, // Array of objects
-                        memberUids: tripForm.value.members.map(m => m.uid), // Array of UIDs for querying
-                        pendingEmails: tripForm.value.pendingEmails,
+                        budget: tripForm.value.budget || 0, // Save budget
                         updatedAt: new Date().toISOString()
                     };
-
-                    if (!currentTrip.value.id) {
-                        tripData.ownerId = user.value.uid; // Set owner on create
+                    
+                    // Add/Ensure current user is in memberUids
+                    if(!currentTrip.value.id) {
+                         tripData.memberUids = [user.value.uid];
                     }
 
                     const performSave = async () => {
                         try {
-                            const tripsColl = collection(db, 'artifacts', appId, 'trips');
+                            // NEW: Save to GLOBAL collection
+                            const tripsRef = collection(db, 'artifacts', appId, 'trips');
+                            
                             if (currentTrip.value.id) {
-                                // Update logic...
+                                // If editing existing trip, check if reducing days needs cleanup
                                 if (newDays.length < days.value.length) {
-                                     // Handle day reduction cleanup
-                                     const eventsToDelete = schedule.value.filter(e => e.dayIndex >= newDays.length);
-                                     if (eventsToDelete.length > 0) {
+                                    const eventsToDelete = schedule.value.filter(e => e.dayIndex >= newDays.length);
+                                    if (eventsToDelete.length > 0) {
                                         const batch = writeBatch(db);
-                                        const tripRef = doc(tripsColl, currentTrip.value.id);
-                                        eventsToDelete.forEach(ev => batch.delete(doc(tripRef, 'schedule', ev.id)));
+                                        const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                                        eventsToDelete.forEach(ev => {
+                                            batch.delete(doc(tripDocRef, 'schedule', ev.id));
+                                        });
                                         await batch.commit();
-                                     }
+                                    }
                                 }
-                                await updateDoc(doc(tripsColl, currentTrip.value.id), tripData);
+                                await updateDoc(doc(tripsRef, currentTrip.value.id), tripData);
                                 currentTrip.value = { ...currentTrip.value, ...tripData };
-                                days.value = newDays;
+                                days.value = newDays; // Update local days immediately
                             } else {
-                                await addDoc(tripsColl, tripData);
+                                await addDoc(tripsRef, tripData);
                             }
                             showTripModal.value = false;
                         } catch (e) { showAlert("儲存失敗: " + e.message); }
                     };
 
-                    if (currentTrip.value.id && newDays.length < days.value.length && schedule.value.some(e => e.dayIndex >= newDays.length)) {
-                        confirmAction('reduce_days', performSave);
-                    } else {
-                        performSave();
+                    // Check conflict logic
+                    if (currentTrip.value.id && newDays.length < days.value.length) {
+                        const hasConflict = schedule.value.some(e => e.dayIndex >= newDays.length);
+                        if (hasConflict) {
+                            confirmAction('reduce_days', performSave);
+                            return; // Stop here, wait for confirm
+                        }
                     }
+
+                    // No conflict or new trip, just save
+                    performSave();
                 };
 
-                // --- 3. View Logic ---
                 const enterTrip = (trip) => {
-                    if (trip.isInvite) return; // Cant enter pending invites
+                    if (trip.isInvite) return; // Wait for accept
                     currentTrip.value = trip;
                     currentView.value = 'planner';
                     activeTab.value = 'schedule';
-                    days.value = calculateDays(trip.startDate, trip.endDate);
                     
-                    const tripRef = doc(db, 'artifacts', appId, 'trips', trip.id);
-                    unsubSchedule = onSnapshot(collection(tripRef, 'schedule'), s => schedule.value = s.docs.map(d => ({id:d.id, ...d.data()})));
-                    unsubExpenses = onSnapshot(collection(tripRef, 'expenses'), s => expenses.value = s.docs.map(d => ({id:d.id, ...d.data()})));
+                    // Generate days from dates
+                    days.value = calculateDays(trip.startDate, trip.endDate);
+                    if (days.value.length === 0) days.value = ['Day 1']; // Fallback
+
+                    // NEW: Read from Global Collection
+                    const tripDocRef = doc(db, 'artifacts', appId, 'trips', trip.id);
+                    
+                    unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (snapshot) => {
+                        schedule.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                    unsubExpenses = onSnapshot(collection(tripDocRef, 'expenses'), (snapshot) => {
+                        expenses.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
                 };
 
                 const exitTrip = () => {
                     currentView.value = 'dashboard';
                     currentTrip.value = {};
-                    schedule.value = []; expenses.value = [];
+                    schedule.value = [];
+                    expenses.value = [];
                     if (unsubSchedule) unsubSchedule();
                     if (unsubExpenses) unsubExpenses();
                 };
@@ -790,145 +767,236 @@
                     tripForm.value = {
                         destination: currentTrip.value.destination,
                         currency: currentTrip.value.currency,
-                        members: currentTrip.value.members || [],
+                        companions: (currentTrip.value.companions || []).join(', '),
                         pendingEmails: currentTrip.value.pendingEmails || [],
-                        startDate: currentTrip.value.startDate,
-                        endDate: currentTrip.value.endDate,
-                        budget: currentTrip.value.budget
+                        startDate: currentTrip.value.startDate || '',
+                        endDate: currentTrip.value.endDate || '',
+                        budget: currentTrip.value.budget || 0
                     };
                     showTripModal.value = true;
                 };
 
-                // --- 4. Sub-item Logic (Schedule/Expense) ---
+                // --- NEW: Invite Logic ---
+                const sendInvite = async () => {
+                    if (!inviteEmail.value || !inviteEmail.value.includes('@')) return showAlert("請輸入有效的 Email");
+                    if (tripForm.value.pendingEmails.includes(inviteEmail.value)) return showAlert("已邀請過此人");
+                    
+                    // Just update local array, user must click Save
+                    tripForm.value.pendingEmails.push(inviteEmail.value);
+                    inviteEmail.value = '';
+                };
+
+                const respondToInvite = async (trip, accept) => {
+                    const tripRef = doc(db, 'artifacts', appId, 'trips', trip.id);
+                    const batch = writeBatch(db);
+                    
+                    if (accept) {
+                        // Add my UID to members
+                        batch.update(tripRef, { 
+                            memberUids: arrayUnion(user.value.uid),
+                            pendingEmails: arrayRemove(user.value.email),
+                            // Auto add name to companions string list for splitting
+                            companions: arrayUnion(settings.value.displayName || user.value.displayName || '新成員')
+                        });
+                    } else {
+                        batch.update(tripRef, { 
+                            pendingEmails: arrayRemove(user.value.email) 
+                        });
+                    }
+                    await batch.commit();
+                };
+
+                // --- 3. Profile Actions ---
+                const openEditProfile = () => {
+                    profileForm.value = {
+                        displayName: settings.value.displayName || user.value.displayName || '',
+                        photoURL: settings.value.photoURL || user.value.photoURL || ''
+                    };
+                    showUserMenu.value = false;
+                    showProfileModal.value = true;
+                };
+
+                const saveProfile = async () => {
+                    if (!user.value) return;
+                    try {
+                        await updateProfile(user.value, {
+                            displayName: profileForm.value.displayName,
+                            photoURL: profileForm.value.photoURL
+                        });
+                        
+                        const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                        await setDoc(ref, {
+                            displayName: profileForm.value.displayName,
+                            photoURL: profileForm.value.photoURL
+                        }, { merge: true });
+
+                        showProfileModal.value = false;
+                    } catch (e) { showAlert("更新失敗: " + e.message); }
+                };
+
+                // --- 4. Schedule/Expense Items Logic ---
                 const openAddItemModal = () => {
-                    isEditing.value = false; currentEditId.value = null;
+                    isEditing.value = false;
+                    currentEditId.value = null;
                     form.value = { time: '09:00', title: '', location: '', note: '' };
-                    // Default payer is me or first member
-                    const meName = (currentTrip.value.members || []).find(m => m.uid === user.value.uid)?.name;
-                    expenseForm.value = { title: '', amount: '', payer: meName || (currentTrip.value.members?.[0]?.name) || '' };
+                    expenseForm.value = { title: '', amount: '', payer: currentTrip.value.companions[0] || '' };
+                    showItemModal.value = true;
+                };
+
+                const editEvent = (event) => {
+                    isEditing.value = true;
+                    currentEditId.value = event.id;
+                    form.value = { ...event };
                     showItemModal.value = true;
                 };
 
                 const submitItem = async () => {
                     submitting.value = true;
-                    const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                    // NEW: Use Global Path
+                    const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                     try {
                         if (activeTab.value === 'schedule') {
                             if (!form.value.title) throw new Error("請輸入標題");
+                            const coll = collection(tripDocRef, 'schedule');
                             const data = { ...form.value, dayIndex: currentDayIndex.value, updatedAt: new Date().toISOString() };
-                            if (isEditing.value) await updateDoc(doc(tripRef, 'schedule', currentEditId.value), data);
-                            else await addDoc(collection(tripRef, 'schedule'), data);
+                            if (isEditing.value && currentEditId.value) await updateDoc(doc(coll, currentEditId.value), data);
+                            else await addDoc(coll, data);
                         } else {
                             if (!expenseForm.value.title || !expenseForm.value.amount) throw new Error("資料不完整");
-                            await addDoc(collection(tripRef, 'expenses'), { ...expenseForm.value, date: new Date().toISOString() });
+                            const coll = collection(tripDocRef, 'expenses');
+                            const data = { ...expenseForm.value, date: new Date().toISOString() };
+                            await addDoc(coll, data);
                         }
                         showItemModal.value = false;
                     } catch (e) { showAlert(e.message); } finally { submitting.value = false; }
                 };
-                
+
                 const deleteItem = async (type, id) => {
-                     // Using built-in confirm for simplicity inside item list
                     if (!confirm('確定刪除？')) return;
+                    // NEW: Use Global Path
+                    const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                     try {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'trips', currentTrip.value.id, type, id));
+                        await deleteDoc(doc(tripDocRef, type === 'schedule' ? 'schedule' : 'expenses', id));
                     } catch (e) { showAlert("刪除失敗"); }
                 };
 
                 // --- Helpers ---
-                const calculateDays = (s, e) => {
-                    if (!s || !e) return ['Day 1'];
-                    const diff = Math.abs(new Date(e) - new Date(s));
-                    return Array.from({length: Math.ceil(diff / 86400000) + 1}, (_, i) => `Day ${i + 1}`);
+                const selectDestination = (country) => {
+                    tripForm.value.destination = country.name;
+                    tripForm.value.currency = country.currency;
+                    showDestinationModal.value = false;
                 };
-                const showAlert = (msg) => { errorMessage.value = msg; showErrorModal.value = true; };
-                const confirmAction = (type, payload) => {
-                    if (type === 'logout') { confirmMessage.value = '確定要登出嗎？'; pendingAction.value = async () => { await signOut(auth); showUserMenu.value = false; }; }
-                    else if (type === 'reduce_days') { confirmMessage.value = '縮短行程將會刪除多餘的行程，確定嗎？'; pendingAction.value = payload; }
-                    showConfirmModal.value = true;
-                };
-                const executeConfirm = async () => { if(pendingAction.value) await pendingAction.value(); showConfirmModal.value = false; };
-                const selectDestination = (c) => { tripForm.value.destination = c.name; tripForm.value.currency = c.currency; showDestinationModal.value = false; };
-                const openEditProfile = () => { profileForm.value = { displayName: settings.value.displayName || user.value.displayName, photoURL: settings.value.photoURL || user.value.photoURL }; showUserMenu.value = false; showProfileModal.value = true; };
-                const saveProfile = async () => { 
-                    try { 
-                        await updateProfile(user.value, profileForm.value); 
-                        await saveUserDirectory({ ...user.value, ...profileForm.value }); // Update DB too
-                        showProfileModal.value = false; 
-                    } catch(e) { showAlert(e.message); } 
-                };
-                const editEvent = (e) => { isEditing.value = true; currentEditId.value = e.id; form.value = {...e}; showItemModal.value = true; };
-                const copyUid = () => { navigator.clipboard.writeText(user.value.uid); copyToast.value = '已複製!'; setTimeout(()=>copyToast.value='',2000); };
-                const formatDate = (iso) => { const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+                
+                const addDay = () => days.value.push(`Day ${days.value.length + 1}`);
                 const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+                const formatDate = (iso) => {
+                    const d = new Date(iso);
+                    return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                };
 
                 // --- Computeds ---
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
-                const sortedEvents = computed(() => [...currentDayEvents.value].sort((a,b) => a.time.localeCompare(b.time)));
-                const sortedExpenses = computed(() => [...expenses.value].sort((a,b) => new Date(b.date) - new Date(a.date)));
-                const totalExpense = computed(() => expenses.value.reduce((s,i) => s + (Number(i.amount)||0), 0));
-                
-                // Updated Logic for Member-based Stats
+                const sortedEvents = computed(() => [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time)));
+                const sortedExpenses = computed(() => [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date)));
+                const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
                 const averageExpense = computed(() => {
-                    const count = (currentTrip.value.members || []).length;
-                    return count ? Math.round(totalExpense.value / count) : 0;
+                    if (!currentTrip.value.companions || currentTrip.value.companions.length === 0) return 0;
+                    return Math.round(totalExpense.value / currentTrip.value.companions.length);
                 });
-                const budgetPercentage = computed(() => (currentTrip.value.budget > 0) ? (totalExpense.value / currentTrip.value.budget)*100 : 0);
-                const remainingBudget = computed(() => (currentTrip.value.budget || 0) - totalExpense.value);
-                const budgetColor = computed(() => budgetPercentage.value >= 100 ? 'bg-red-500' : budgetPercentage.value >= 80 ? 'bg-red-400' : budgetPercentage.value >= 50 ? 'bg-yellow-400' : 'bg-green-400');
                 
-                const debts = computed(() => {
-                    const members = (currentTrip.value.members || []).map(m => m.name); // Extract names
-                    if (members.length < 2) return [];
-                    const bal = {}; members.forEach(m => bal[m]=0);
-                    expenses.value.forEach(e => {
-                        const amt = Number(e.amount);
-                        if(members.includes(e.payer)) {
-                            bal[e.payer] += amt;
-                            members.forEach(m => bal[m] -= amt/members.length);
-                        }
-                    });
-                    const d = [], c = [];
-                    for(const [u,v] of Object.entries(bal)) {
-                        if(v < -1) d.push({u,v});
-                        if(v > 1) c.push({u,v});
-                    }
-                    d.sort((a,b)=>a.v-b.v); c.sort((a,b)=>b.v-a.v);
-                    const res = []; let i=0, j=0;
-                    while(i<d.length && j<c.length) {
-                        const amt = Math.min(Math.abs(d[i].v), c[j].v);
-                        res.push({from: d[i].u, to: c[j].u, amount: Math.round(amt)});
-                        d[i].v += amt; c[j].v -= amt;
-                        if(Math.abs(d[i].v)<1) i++; if(c[j].v<1) j++;
-                    }
-                    return res;
+                // Budget Computed Properties
+                const budgetPercentage = computed(() => {
+                    if (!currentTrip.value.budget || currentTrip.value.budget <= 0) return 0;
+                    return (totalExpense.value / currentTrip.value.budget) * 100;
+                });
+                
+                const remainingBudget = computed(() => {
+                    return (currentTrip.value.budget || 0) - totalExpense.value;
                 });
 
+                const budgetColor = computed(() => {
+                    const p = budgetPercentage.value;
+                    if (p >= 100) return 'bg-red-500';
+                    if (p >= 80) return 'bg-red-400';
+                    if (p >= 50) return 'bg-yellow-400';
+                    return 'bg-green-400';
+                });
+
+                // New: User Stats Computed
                 const userStats = computed(() => {
-                    let td = 0; const pl = new Set();
-                    trips.value.filter(t => !t.isInvite).forEach(t => {
-                        if(t.startDate && t.endDate) td += Math.ceil(Math.abs(new Date(t.endDate)-new Date(t.startDate))/86400000)+1;
-                        if(t.destination) pl.add(t.destination);
+                    const myTrips = trips.value;
+                    const totalTrips = myTrips.length;
+                    
+                    let totalDays = 0;
+                    const places = new Set();
+
+                    myTrips.forEach(t => {
+                        // Calculate days if dates exist
+                        if (t.startDate && t.endDate) {
+                            const s = new Date(t.startDate);
+                            const e = new Date(t.endDate);
+                            const diff = Math.abs(e - s);
+                            const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+                            totalDays += days;
+                        }
+                        // Add unique destination
+                        if (t.destination) places.add(t.destination);
                     });
-                    return { totalTrips: trips.value.filter(t => !t.isInvite).length, totalDays: td, uniquePlaces: pl.size };
+
+                    return {
+                        totalTrips,
+                        totalDays,
+                        uniquePlaces: places.size
+                    };
+                });
+
+                const debts = computed(() => {
+                    const usersList = currentTrip.value.companions || [];
+                    if (usersList.length < 2) return [];
+                    const balances = {}; usersList.forEach(u => balances[u] = 0);
+                    expenses.value.forEach(exp => {
+                        const amount = Number(exp.amount);
+                        if (usersList.includes(exp.payer)) {
+                            const split = amount / usersList.length;
+                            balances[exp.payer] += amount;
+                            usersList.forEach(u => balances[u] -= split);
+                        }
+                    });
+                    let debtors = [], creditors = [];
+                    for (const [u, amount] of Object.entries(balances)) {
+                        if (amount < -1) debtors.push({ user: u, amount });
+                        if (amount > 1) creditors.push({ user: u, amount });
+                    }
+                    debtors.sort((a, b) => a.amount - b.amount); creditors.sort((a, b) => b.amount - a.amount);
+                    const result = []; let i = 0, j = 0;
+                    while (i < debtors.length && j < creditors.length) {
+                        let debtor = debtors[i], creditor = creditors[j];
+                        let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+                        result.push({ from: debtor.user, to: creditor.user, amount: Math.round(amount) });
+                        debtor.amount += amount; creditor.amount -= amount;
+                        if (Math.abs(debtor.amount) < 1) i++; if (creditor.amount < 1) j++;
+                    }
+                    return result;
                 });
 
                 return {
                     user, loading, loginError,
                     currentView, trips, currentTrip,
                     activeTab, days, currentDayIndex,
-                    showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal, showInviteModal, showConfirmModal, showErrorModal,
-                    confirmMessage, errorMessage, copyToast, inviteEmail,
-                    activeRegion, regions, profileForm, tripForm, form, expenseForm,
+                    showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
+                    showConfirmModal, confirmMessage, executeConfirm, confirmAction, // New confirm refs
+                    showErrorModal, errorMessage, copyToast, inviteEmail,
+                    activeRegion, regions, selectDestination,
+                    profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
-                    budgetPercentage, remainingBudget, budgetColor, userStats, isEditing, submitting,
-                    loginWithGoogle, confirmAction, executeConfirm,
+                    budgetPercentage, remainingBudget, budgetColor, userStats, // Added userStats
+                    loginWithGoogle, confirmLogout, copyUid,
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
-                    openEditProfile, saveProfile, copyUid, selectDestination,
-                    addInvite, cancelInvite, respondToInvite,
-                    addDay: () => days.value.push(`Day ${days.value.length + 1}`),
-                    openMap, formatDate
+                    openEditProfile, saveProfile,
+                    addDay, openMap, formatDate,
+                    sendInvite, respondToInvite // New actions
                 };
             }
         }).mount('#app');
