@@ -535,9 +535,8 @@
                     
                     if(!currentTrip.value.id) {
                          tripData.memberUids = [user.value.uid];
-                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL}]; // Init members
+                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL}];
                     } else {
-                         // Auto-repair for existing trips
                          let existingMembers = currentTrip.value.memberUids || [];
                          if(!existingMembers.includes(user.value.uid)) existingMembers.push(user.value.uid);
                          tripData.memberUids = existingMembers;
@@ -677,42 +676,49 @@
                     await batch.commit();
                 };
 
+                // New Remove Logic using custom modal
                 const removePending = async (email) => {
-                    if(!currentTrip.value.id) {
-                        tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
-                    } else {
-                        if(!confirm('確定取消邀請？')) return;
-                        const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
-                        await updateDoc(tripRef, { pendingEmails: arrayRemove(email) });
-                        tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
-                    }
+                    const doRemove = async () => {
+                         if(!currentTrip.value.id) {
+                            tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
+                        } else {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { pendingEmails: arrayRemove(email) });
+                            tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
+                        }
+                        showConfirmModal.value = false;
+                    };
+
+                    confirmMessage.value = `確定取消對 ${email} 的邀請嗎？`;
+                    pendingAction.value = doRemove;
+                    showConfirmModal.value = true;
                 };
 
                 const removeCompanion = async (index) => {
-                    if(!currentTrip.value.id) {
-                        tripForm.value.companions.splice(index, 1);
-                    } else {
-                         if(!confirm('確定移除此成員？注意：該成員將無法存取旅程。')) return;
-                         const nameToRemove = tripForm.value.companions[index];
-                         
-                         // Try find corresponding member object to remove UID access
-                         const memberObj = (tripForm.value.members || []).find(m => m.name === nameToRemove);
-                         const uidToRemove = memberObj ? memberObj.uid : null;
+                     const nameToRemove = tripForm.value.companions[index];
+                     
+                     const doRemove = async () => {
+                         if(!currentTrip.value.id) {
+                            tripForm.value.companions.splice(index, 1);
+                        } else {
+                             const memberObj = (tripForm.value.members || []).find(m => m.name === nameToRemove);
+                             const uidToRemove = memberObj ? memberObj.uid : null;
+                             const batch = writeBatch(db);
+                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                             
+                             batch.update(tripRef, { companions: arrayRemove(nameToRemove) });
+                             if (uidToRemove) {
+                                 batch.update(tripRef, { memberUids: arrayRemove(uidToRemove), members: arrayRemove(memberObj) });
+                             }
+                             await batch.commit();
+                             tripForm.value.companions.splice(index, 1);
+                        }
+                        showConfirmModal.value = false;
+                     };
 
-                         const batch = writeBatch(db);
-                         const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
-                         
-                         batch.update(tripRef, { companions: arrayRemove(nameToRemove) });
-                         if (uidToRemove) {
-                             batch.update(tripRef, { 
-                                 memberUids: arrayRemove(uidToRemove),
-                                 members: arrayRemove(memberObj)
-                             });
-                         }
-                         
-                         await batch.commit();
-                         tripForm.value.companions.splice(index, 1);
-                    }
+                     confirmMessage.value = `確定移除成員 ${nameToRemove}？該成員將無法存取旅程。`;
+                     pendingAction.value = doRemove;
+                     showConfirmModal.value = true;
                 };
 
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
