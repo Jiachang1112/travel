@@ -86,7 +86,7 @@
                         {{ settings.destination || '我的旅程' }} ✈️
                         <span v-if="loading" class="ml-2 loader"></span>
                     </h1>
-                    <p class="text-[10px] text-gray-500 font-mono">ID: {{ user.displayName || 'Traveler' }}</p>
+                    <p class="text-[10px] text-gray-500 font-mono">ID: {{ settings.displayName || user.displayName || 'Traveler' }}</p>
                 </div>
                 
                 <div class="flex items-center gap-3">
@@ -95,7 +95,7 @@
                     </button>
 
                     <button @click="showUserMenu = true" class="relative group focus:outline-none">
-                        <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
+                        <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
                              class="w-9 h-9 rounded-full border border-gray-200 transition transform active:scale-95 object-cover">
                     </button>
                 </div>
@@ -394,8 +394,8 @@
                         </div>
 
                         <div class="flex flex-col items-center mb-6">
-                             <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
-                             <h3 class="text-xl font-bold text-gray-800">{{ user.displayName || '使用者' }}</h3>
+                             <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
+                             <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
                              <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
                         </div>
 
@@ -490,7 +490,7 @@
                 { name: '加拿大', currency: 'C$' }
             ],
             '北': [
-                { name: '北海道', currency: '¥' }, // 只是為了符合東南西北的趣味
+                { name: '北海道', currency: '¥' }, 
                 { name: '俄羅斯', currency: '₽' }
             ]
         };
@@ -520,11 +520,13 @@
                 const schedule = ref([]);
                 const expenses = ref([]);
                 
-                // Settings Data
+                // Settings Data (包含個人資料)
                 const settings = ref({
                     users: ['我', '旅伴A'],
                     destination: '東京',
-                    currency: '¥'
+                    currency: '¥',
+                    displayName: '', // 新增
+                    photoURL: ''     // 新增
                 });
                 const settingsInput = ref('我, 旅伴A');
                 const destinationInput = ref('東京');
@@ -582,8 +584,8 @@
                 // --- Profile Functions ---
                 const openEditProfile = () => {
                     profileForm.value = {
-                        displayName: user.value.displayName || '',
-                        photoURL: user.value.photoURL || ''
+                        displayName: settings.value.displayName || user.value.displayName || '',
+                        photoURL: settings.value.photoURL || user.value.photoURL || ''
                     };
                     showUserMenu.value = false;
                     showProfileModal.value = true;
@@ -592,11 +594,19 @@
                 const saveProfile = async () => {
                     if (!user.value) return;
                     try {
+                        // 1. 更新 Firebase Auth (保留這步是好的，因為這也是標準流程)
                         await updateProfile(user.value, {
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         });
-                        user.value = { ...user.value, ...profileForm.value };
+                        
+                        // 2. 將資料也寫入 Firestore 設定檔 (使用 merge 以免覆蓋其他設定)
+                        const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                        await setDoc(ref, {
+                            displayName: profileForm.value.displayName,
+                            photoURL: profileForm.value.photoURL
+                        }, { merge: true });
+
                         showProfileModal.value = false;
                     } catch (e) {
                         alert("更新失敗: " + e.message);
@@ -785,11 +795,13 @@
                     
                     try {
                         const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                        // 這裡也使用 merge: true，確保不會把個人資料 displayName/photoURL 洗掉
                         await setDoc(ref, { 
                             users: newUsers,
                             destination: destinationInput.value || '我的旅程',
                             currency: currencyInput.value || '$'
-                        });
+                        }, { merge: true });
+                        
                         showSettings.value = false;
                     } catch (e) {
                         alert("儲存失敗: " + e.message);
