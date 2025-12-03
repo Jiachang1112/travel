@@ -322,7 +322,16 @@
                         <div class="space-y-4 mb-6">
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">目的地 (標題)</label>
-                                <input v-model="destinationInput" type="text" placeholder="例如：東京、首爾" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                                <div class="relative">
+                                    <input 
+                                        readonly 
+                                        @click="showDestinationModal = true" 
+                                        v-model="destinationInput" 
+                                        type="text" 
+                                        placeholder="點擊選擇目的地" 
+                                        class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary cursor-pointer pr-10">
+                                    <i class="fas fa-chevron-down absolute right-3 top-4 text-gray-400 text-xs pointer-events-none"></i>
+                                </div>
                             </div>
 
                             <div>
@@ -342,6 +351,37 @@
                         </div>
 
                         <button @click="saveSettings" class="w-full py-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg shadow-gray-200">儲存旅程設定</button>
+                    </div>
+                </div>
+            </Transition>
+            
+            <Transition name="fade">
+                <div v-if="showDestinationModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl mx-5 overflow-hidden flex flex-col max-h-[70vh]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 class="font-bold text-gray-800">選擇目的地</h3>
+                            <button @click="showDestinationModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="flex border-b border-gray-200">
+                            <button v-for="key in Object.keys(regions)" :key="key" 
+                                @click="activeRegion = key"
+                                :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'"
+                                class="flex-1 py-3 text-sm font-bold border-b-2 transition">
+                                {{ key }}
+                            </button>
+                        </div>
+
+                        <div class="p-4 overflow-y-auto grid grid-cols-2 gap-3 bg-gray-50/50 flex-1">
+                            <button 
+                                v-for="country in regions[activeRegion]" 
+                                :key="country.name"
+                                @click="selectDestination(country)"
+                                class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group">
+                                <span class="font-medium text-gray-700 group-hover:text-primary">{{ country.name }}</span>
+                                <span class="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ country.currency }}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </Transition>
@@ -426,6 +466,35 @@
 
         const { createApp, ref, computed, watch, onMounted } = window.Vue;
 
+        // 預定義的國家與貨幣資料
+        const regions = {
+            '東': [
+                { name: '日本', currency: '¥' },
+                { name: '韓國', currency: '₩' },
+                { name: '台灣', currency: 'NT$' },
+                { name: '香港', currency: 'HK$' },
+                { name: '中國', currency: '¥' }
+            ],
+            '南': [
+                { name: '泰國', currency: '฿' },
+                { name: '越南', currency: '₫' },
+                { name: '新加坡', currency: 'S$' },
+                { name: '馬來西亞', currency: 'RM' },
+                { name: '菲律賓', currency: '₱' },
+                { name: '澳洲', currency: 'A$' }
+            ],
+            '西': [
+                { name: '美國', currency: '$' },
+                { name: '英國', currency: '£' },
+                { name: '歐盟', currency: '€' },
+                { name: '加拿大', currency: 'C$' }
+            ],
+            '北': [
+                { name: '北海道', currency: '¥' }, // 只是為了符合東南西北的趣味
+                { name: '俄羅斯', currency: '₽' }
+            ]
+        };
+
         createApp({
             setup() {
                 const user = ref(null);
@@ -436,7 +505,11 @@
                 const showModal = ref(false);
                 const showSettings = ref(false); 
                 const showUserMenu = ref(false); 
-                const showProfileModal = ref(false); // 新增：控制編輯檔案視窗
+                const showProfileModal = ref(false);
+                
+                // 新增：目的地選擇器相關
+                const showDestinationModal = ref(false);
+                const activeRegion = ref('東');
 
                 const isEditing = ref(false);
                 const submitting = ref(false);
@@ -523,12 +596,18 @@
                             displayName: profileForm.value.displayName,
                             photoURL: profileForm.value.photoURL
                         });
-                        // 雖然 Firebase 狀態會更新，但有時本地變數反應慢，這裡強制更新本地顯示
                         user.value = { ...user.value, ...profileForm.value };
                         showProfileModal.value = false;
                     } catch (e) {
                         alert("更新失敗: " + e.message);
                     }
+                };
+
+                // --- Selection Logic ---
+                const selectDestination = (country) => {
+                    destinationInput.value = country.name;
+                    currencyInput.value = country.currency;
+                    showDestinationModal.value = false;
                 };
 
                 let unsubSchedule = null;
@@ -729,6 +808,8 @@
                 return {
                     user, loading, loginError,
                     activeTab, showModal, showSettings, showUserMenu, showProfileModal, isEditing, submitting,
+                    // Selection
+                    showDestinationModal, activeRegion, regions, selectDestination,
                     days, currentDayIndex,
                     schedule, expenses, settings, 
                     settingsInput, destinationInput, currencyInput,
