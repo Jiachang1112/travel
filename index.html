@@ -204,6 +204,35 @@
                             </div>
                         </div>
 
+                        <div class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
+                            <div class="flex justify-between items-end mb-2">
+                                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide">預算狀態</h3>
+                                <button @click="openTripSettings" class="text-xs text-primary font-bold hover:underline">
+                                    {{ currentTrip.budget > 0 ? '調整' : '設定預算' }}
+                                </button>
+                            </div>
+                            
+                            <div v-if="currentTrip.budget > 0">
+                                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                    <span>已用 {{ Math.round(budgetPercentage) }}%</span>
+                                    <span :class="remainingBudget < 0 ? 'text-red-500 font-bold' : ''">剩餘 {{ currentTrip.currency }}{{ remainingBudget.toLocaleString() }}</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                                    <div class="h-2.5 rounded-full transition-all duration-500" 
+                                         :class="budgetColor"
+                                         :style="{ width: Math.min(budgetPercentage, 100) + '%' }"></div>
+                                </div>
+                                <p class="text-xs text-gray-300 mt-2 text-right">總預算 {{ currentTrip.currency }}{{ Number(currentTrip.budget).toLocaleString() }}</p>
+                            </div>
+                            
+                            <div v-else class="text-center py-2">
+                                <p class="text-xs text-gray-400 mb-2">尚未設定旅遊預算</p>
+                                <button @click="openTripSettings" class="w-full py-2 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-100 border border-dashed border-gray-300">
+                                    <i class="fas fa-plus-circle mr-1"></i> 新增預算上限
+                                </button>
+                            </div>
+                        </div>
+
                         <div v-if="debts.length > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
                             <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">結算方案</h3>
                             <div class="space-y-3">
@@ -317,6 +346,12 @@
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">貨幣符號</label>
                                 <input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
                             </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">預算上限</label>
+                                <input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-2">旅伴名單 (逗號分隔)</label>
                                 <input v-model="tripForm.companions" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
@@ -482,8 +517,8 @@
                 const showProfileModal = ref(false);
                 const showDestinationModal = ref(false);
                 const showLogoutConfirm = ref(false);
-                const showErrorModal = ref(false); // New Error Modal State
-                const errorMessage = ref('');      // New Error Message State
+                const showErrorModal = ref(false);
+                const errorMessage = ref('');
                 const copyToast = ref('');
                 
                 // Forms & State
@@ -499,7 +534,7 @@
 
                 // Forms Data
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '' });
+                const tripForm = ref({ destination: '', currency: '', companions: '', startDate: '', endDate: '', budget: 0 }); // Added budget
                 const form = ref({ time: '10:00', title: '', location: '', note: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
 
@@ -582,7 +617,7 @@
                 // --- 2. Trip Actions ---
                 const onFabClick = () => {
                     if (currentView.value === 'dashboard') {
-                        tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '' };
+                        tripForm.value = { destination: '', currency: '¥', companions: user.value.displayName || '我', startDate: '', endDate: '', budget: 0 };
                         currentTrip.value = {}; 
                         showTripModal.value = true;
                     } else {
@@ -600,6 +635,7 @@
                         companions: companionsArr.length ? companionsArr : ['我'],
                         startDate: tripForm.value.startDate,
                         endDate: tripForm.value.endDate,
+                        budget: tripForm.value.budget || 0, // Save budget
                         updatedAt: new Date().toISOString()
                     };
 
@@ -645,7 +681,8 @@
                         currency: currentTrip.value.currency,
                         companions: currentTrip.value.companions.join(', '),
                         startDate: currentTrip.value.startDate || '',
-                        endDate: currentTrip.value.endDate || ''
+                        endDate: currentTrip.value.endDate || '',
+                        budget: currentTrip.value.budget || 0
                     };
                     showTripModal.value = true;
                 };
@@ -745,6 +782,25 @@
                     if (!currentTrip.value.companions || currentTrip.value.companions.length === 0) return 0;
                     return Math.round(totalExpense.value / currentTrip.value.companions.length);
                 });
+                
+                // New: Budget Computed Properties
+                const budgetPercentage = computed(() => {
+                    if (!currentTrip.value.budget || currentTrip.value.budget <= 0) return 0;
+                    return (totalExpense.value / currentTrip.value.budget) * 100;
+                });
+                
+                const remainingBudget = computed(() => {
+                    return (currentTrip.value.budget || 0) - totalExpense.value;
+                });
+
+                const budgetColor = computed(() => {
+                    const p = budgetPercentage.value;
+                    if (p >= 100) return 'bg-red-500';
+                    if (p >= 80) return 'bg-red-400';
+                    if (p >= 50) return 'bg-yellow-400';
+                    return 'bg-green-400';
+                });
+
                 const debts = computed(() => {
                     const usersList = currentTrip.value.companions || [];
                     if (usersList.length < 2) return [];
@@ -784,6 +840,7 @@
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
+                    budgetPercentage, remainingBudget, budgetColor, // Return new computed
                     loginWithGoogle, confirmLogout, copyUid,
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
