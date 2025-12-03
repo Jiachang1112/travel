@@ -179,13 +179,13 @@
                     <div v-else-if="activeTab === 'expense'" class="pb-20">
                         <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl shadow-gray-200/50 mb-6 relative overflow-hidden">
                             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-                            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Total Expenses</p>
+                            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">總支出</p>
                             <h2 class="text-4xl font-bold font-mono tracking-tight flex items-baseline">
                                 <span class="text-xl mr-1">{{ currentTrip.currency || '$' }}</span>{{ totalExpense.toLocaleString() }}
                             </h2>
                             <div class="mt-6 flex justify-between items-end">
                                 <div>
-                                    <p class="text-gray-400 text-xs mb-1">Average per person</p>
+                                    <p class="text-gray-400 text-xs mb-1">平均每人</p>
                                     <p class="font-mono text-lg">{{ currentTrip.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
                                 </div>
                                 <div class="flex -space-x-2">
@@ -210,7 +210,7 @@
                             </div>
                         </div>
 
-                        <div class="space-y-3">
+                        <div v-if="sortedExpenses.length > 0" class="space-y-3">
                             <div v-for="expense in sortedExpenses" :key="expense.id" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
@@ -226,6 +226,10 @@
                                     <button @click="deleteItem('expenses', expense.id)" class="text-gray-300 text-xs mt-1 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">刪除</button>
                                 </div>
                             </div>
+                        </div>
+                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">💸</div>
+                            <p>請點選右下角+ 添加您的第一筆支出吧！</p>
                         </div>
                     </div>
                 </div>
@@ -695,7 +699,7 @@
                 };
                 
                 const addDay = () => days.value.push(`Day ${days.value.length + 1}`);
-                const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+                const openMap = (loc) => window.open(`http://googleusercontent.com/maps.google.com/0{encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => {
                     const d = new Date(iso);
                     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
