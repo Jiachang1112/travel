@@ -338,7 +338,7 @@
                         <button @click="submitItem" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
                             <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>{{ isEditing ? '儲存變更' : '確認新增' }}
                         </button>
-                        
+
                         <button v-if="isEditing" @click="requestDeleteItem" class="w-full mt-3 py-3.5 bg-red-50 text-red-500 rounded-2xl font-bold text-lg hover:bg-red-100 transition flex items-center justify-center">
                             <i class="fas fa-trash-alt mr-2"></i> 刪除此筆資料
                         </button>
@@ -576,7 +576,7 @@
                         confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？'; 
                         pendingAction.value = payload; 
                     }
-                    // ★★★ 新增刪除 Item 的確認邏輯 (New) ★★★
+                    // 修改3: 新增刪除 Item 的確認邏輯
                     else if (actionType === 'delete_item_modal') {
                         confirmMessage.value = '確定要刪除這筆資料嗎？此操作無法復原。';
                         pendingAction.value = async () => {
@@ -903,7 +903,7 @@
                     } catch (e) { showAlert(e.message); } finally { submitting.value = false; }
                 };
 
-                // ★★★ 呼叫刪除確認視窗 (New) ★★★
+                // 修改4: 新增呼叫刪除確認的函式
                 const requestDeleteItem = () => {
                     confirmAction('delete_item_modal');
                 };
@@ -1039,7 +1039,7 @@
                     openEditProfile, saveProfile,
                     addDay, openMap, formatDate,
                     sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
-                    activeProfileTab, handleFileUpload
+                    activeProfileTab, handleFileUpload // 新增的 Return
                 };
             }
         }).mount('#app');
