@@ -79,6 +79,9 @@
                     <button v-if="currentView === 'planner'" @click="openTripSettings" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-primary hover:bg-indigo-50 flex items-center justify-center transition">
                         <i class="fas fa-cog"></i>
                     </button>
+                    <button v-if="currentView === 'planner'" @click="shareTrip" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-green-600 hover:bg-green-50 flex items-center justify-center transition -ml-1">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
 
                     <button @click="showUserMenu = true" class="relative group focus:outline-none">
                         <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
@@ -542,6 +545,7 @@
                 const form = ref({ dayIndex: 0, time: '10:00', title: '', location: '', note: '', amount: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
                 const showCompanionManager = ref(false);
+                const initialCheckDone = ref(false); // 新增：避免重複檢查網址
 
                 let unsubTrips = null;
                 let unsubInvites = null;
@@ -596,6 +600,40 @@
                 const loginWithGoogle = async () => { try { loginError.value = ''; if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); } } catch (error) { showAlert("登入失敗: " + error.message); } };
                 const copyUid = async () => { if (user.value && user.value.uid) { try { await navigator.clipboard.writeText(user.value.uid); copyToast.value = '已複製!'; setTimeout(() => copyToast.value = '', 2000); } catch (err) { console.error('Failed to copy!', err); } } };
 
+                // 新增：處理分享連結
+                const shareTrip = async () => {
+                    if (!currentTrip.value.id) return;
+                    const url = `${window.location.origin}${window.location.pathname}?tripId=${currentTrip.value.id}`;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        copyToast.value = '連結已複製！傳送給旅伴吧';
+                        setTimeout(() => copyToast.value = '', 3000);
+                    } catch (err) {
+                        showAlert("複製失敗，請手動複製網址");
+                    }
+                };
+
+                // 新增：處理 Deep Link (網址帶參數)
+                const handleDeepLink = () => {
+                    const params = new URLSearchParams(window.location.search);
+                    const targetTripId = params.get('tripId');
+
+                    if (!targetTripId || initialCheckDone.value) return;
+
+                    const targetTrip = trips.value.find(t => t.id === targetTripId);
+
+                    if (targetTrip) {
+                        if(targetTrip.isInvite) {
+                             showAlert("您收到此旅程的邀請，請先在列表中點擊「加入」");
+                        } else {
+                            enterTrip(targetTrip);
+                        }
+                        initialCheckDone.value = true;
+                        // 可選：清除網址參數
+                        // window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                };
+
                 const fetchGlobalData = () => {
                     const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                     unsubSettings = onSnapshot(settingsRef, (docSnap) => {
@@ -619,6 +657,7 @@
                     unsubTrips = onSnapshot(q, (snapshot) => {
                         const myTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                         mergeTrips(myTrips, 'owned');
+                        handleDeepLink(); // 檢查網址
                     });
                     
                     if(user.value.email) {
@@ -626,6 +665,7 @@
                         unsubInvites = onSnapshot(qInvite, (snapshot) => {
                             const invitedTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data(), isInvite: true }));
                             mergeTrips(invitedTrips, 'invited');
+                            handleDeepLink(); // 檢查網址
                         });
                     }
                 };
@@ -1041,7 +1081,8 @@
                     openEditProfile, saveProfile,
                     addDay, openMap, formatDate,
                     sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
-                    activeProfileTab, handleFileUpload // 新增的 Return
+                    activeProfileTab, handleFileUpload,
+                    shareTrip // 新增的 Return
                 };
             }
         }).mount('#app');
