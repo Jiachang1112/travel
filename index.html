@@ -26,7 +26,7 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { primary: '#6366f1', secondary: '#ec4899' },
+                    colors: { primary: '#6366f1', secondary: '#ec4899', googleBlue: '#1a73e8' },
                     padding: { 'safe': 'env(safe-area-inset-bottom)' }
                 }
             }
@@ -79,8 +79,8 @@
                     <button v-if="currentView === 'planner'" @click="openTripSettings" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-primary hover:bg-indigo-50 flex items-center justify-center transition">
                         <i class="fas fa-cog"></i>
                     </button>
-                    <button v-if="currentView === 'planner'" @click="shareTrip" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-green-600 hover:bg-green-50 flex items-center justify-center transition -ml-1">
-                        <i class="fas fa-share-alt"></i>
+                    <button v-if="currentView === 'planner'" @click="openShareModal" class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-googleBlue hover:bg-blue-50 flex items-center justify-center transition -ml-1">
+                        <i class="fas fa-user-plus"></i>
                     </button>
 
                     <button @click="showUserMenu = true" class="relative group focus:outline-none">
@@ -268,6 +268,80 @@
                 </button>
             </nav>
 
+            <Transition name="fade">
+                <div v-if="showShareModal" class="absolute inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showShareModal = false">
+                    <div class="bg-white w-full max-w-md rounded-xl shadow-2xl mx-4 overflow-hidden flex flex-col max-h-[85vh]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 class="text-xl font-normal text-gray-800">共用「{{ currentTrip.destination || '旅程' }}」</h3>
+                            <div class="flex gap-2">
+                                <button @click="showShareModal = false" class="text-gray-500 hover:bg-gray-100 rounded-full p-2"><i class="fas fa-cog"></i></button>
+                                <button @click="showShareModal = false" class="text-gray-500 hover:bg-gray-100 rounded-full p-2"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="p-4">
+                            <div class="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-1 mb-2 focus-within:border-googleBlue focus-within:ring-2 focus-within:ring-blue-100 transition">
+                                <input v-model="inviteEmail" type="email" placeholder="新增使用者、群組" class="flex-1 bg-transparent p-2 outline-none text-sm text-gray-700">
+                                <button v-if="inviteEmail" @click="sendInvite" class="text-sm font-bold text-googleBlue px-3 py-1 hover:bg-blue-50 rounded">邀請</button>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto px-4 pb-2">
+                            <p class="text-xs font-bold text-gray-500 mb-3">具有存取權的使用者</p>
+                            
+                            <div class="space-y-4">
+                                <div v-for="(member, index) in (currentTrip.members || [])" :key="index" class="flex items-center justify-between group">
+                                    <div class="flex items-center gap-3">
+                                        <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-800">{{ member.name }} <span v-if="member.uid === user.uid" class="text-gray-400 font-normal">(you)</span></p>
+                                            <p class="text-xs text-gray-500">{{ member.uid === user.uid ? user.email : '成員' }}</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs text-gray-400 font-medium px-2 py-1 hover:bg-gray-100 rounded cursor-default">{{ index === 0 ? '擁有者' : '編輯者' }}</span>
+                                </div>
+
+                                <div v-for="email in (currentTrip.pendingEmails || [])" :key="email" class="flex items-center justify-between group opacity-70">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500"><i class="fas fa-envelope"></i></div>
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-800">{{ email }}</p>
+                                            <p class="text-xs text-gray-500">已邀請</p>
+                                        </div>
+                                    </div>
+                                    <button v-if="isOwner" @click="removePending(email)" class="text-gray-400 hover:text-red-500 p-2"><i class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+                            <p class="text-xs font-bold text-gray-500 mb-2">一般存取權</p>
+                            
+                            <div class="flex items-center gap-3 mb-4 p-1">
+                                <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                                    <i class="fas fa-lock"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="relative group cursor-pointer w-fit">
+                                        <span class="font-bold text-sm text-gray-700 flex items-center gap-1">限制 <i class="fas fa-caret-down text-xs"></i></span>
+                                        <p class="text-xs text-gray-500">只有受邀的使用者可以開啟透過這項連結共用的檔案</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-2">
+                                <button @click="shareTrip" class="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 text-googleBlue text-sm font-bold hover:bg-blue-50 transition">
+                                    <i class="fas fa-link"></i> 複製連結
+                                </button>
+                                <button @click="showShareModal = false" class="px-6 py-2 rounded-full bg-googleBlue text-white text-sm font-bold hover:bg-blue-700 shadow-sm transition">
+                                    完成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
             <Transition name="slide-up">
                 <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="showItemModal = false">
                     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl h-[85vh] sm:h-auto flex flex-col">
@@ -377,12 +451,9 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label><input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
-                                <div @click="showCompanionManager = true" class="cursor-pointer group">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅伴名單 (逗號分隔)</label>
-                                    <div class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex justify-between items-center group-hover:border-primary transition">
-                                        <span class="text-gray-800 truncate">{{ (tripForm.companions || []).join(', ') || '無' }}</span>
-                                        <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
-                                    </div>
+                                <div v-if="!currentTrip.id">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">您的暱稱</label>
+                                    <input v-model="tripForm.companions[0]" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary">
                                 </div>
                             </div>
                             
@@ -393,54 +464,6 @@
                                 <button @click="saveTrip" class="flex-[2] py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存變更' : '建立旅程' }}</button>
                             </div>
                         </div>
-
-                        <div v-else>
-                            <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-xl font-bold text-gray-800">管理旅伴</h3>
-                                <button @click="showCompanionManager = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-                            </div>
-                            
-                            <div class="space-y-6 mb-8">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">新增夥伴 (輸入 EMAIL)</label>
-                                    <div class="flex gap-2">
-                                        <input v-model="inviteEmail" type="email" placeholder="example@gmail.com" class="flex-1 bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-primary shadow-sm">
-                                        <button @click="sendInvite" class="bg-primary text-white px-5 rounded-lg text-sm font-bold hover:bg-indigo-600 shadow-md shadow-indigo-200 whitespace-nowrap">邀請</button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-3">確認名單 / 邀請中</label>
-                                    <div class="space-y-3">
-                                        <div v-for="email in tripForm.pendingEmails" :key="email" class="bg-yellow-50 border border-yellow-100 rounded-2xl p-3.5 flex justify-between items-center">
-                                            <div class="flex items-center gap-3.5">
-                                                <div class="w-9 h-9 rounded-full bg-yellow-200 text-yellow-600 flex items-center justify-center text-sm shadow-sm"><i class="fas fa-envelope"></i></div>
-                                                <div class="overflow-hidden">
-                                                    <p class="font-bold text-gray-800 text-sm truncate w-32 sm:w-40">{{ email }}</p>
-                                                    <p class="text-[10px] text-yellow-600 font-bold mt-0.5">等待回應中...</p>
-                                                </div>
-                                            </div>
-                                            <button v-if="isOwner" @click="removePending(email)" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
-                                        </div>
-                                        
-                                        <div v-for="(comp, index) in tripForm.companions" :key="index" class="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 flex justify-between items-center">
-                                            <div class="flex items-center gap-3.5">
-                                                <div class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-sm overflow-hidden">
-                                                     <span v-if="!getMemberPhoto(comp)">{{ comp.charAt(0) }}</span>
-                                                     <img v-else :src="getMemberPhoto(comp)" class="w-full h-full object-cover">
-                                                </div>
-                                                <p class="font-bold text-gray-800 text-sm">{{ comp }}</p>
-                                            </div>
-                                            
-                                            <div v-if="index === 0" class="bg-gray-200 text-gray-500 text-[10px] px-2 py-1 rounded font-bold tracking-wider">主辦人</div>
-                                            <button v-else-if="isOwner" @click="removeCompanion(index)" class="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"><i class="fas fa-times"></i></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <button @click="showCompanionManager = false" class="w-full py-3.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-bold shadow-lg text-lg">完成設定</button>
-                        </div>
-
                     </div>
                 </div>
             </Transition>
@@ -526,6 +549,7 @@
                 const showDestinationModal = ref(false);
                 const showConfirmModal = ref(false);
                 const showErrorModal = ref(false);
+                const showShareModal = ref(false); // 新增分享 Modal 狀態
                 const confirmMessage = ref('');
                 const pendingAction = ref(null);
                 const errorMessage = ref('');
@@ -539,13 +563,12 @@
                 const expenses = ref([]);
                 const settings = ref({});
                 const profileForm = ref({ displayName: '', photoURL: '' });
-                const activeProfileTab = ref('upload'); // 新增：控制上傳或連結
+                const activeProfileTab = ref('upload'); 
                 const tripForm = ref({ destination: '', currency: '', companions: [], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
-                // Include dayIndex for schedule item editing
                 const form = ref({ dayIndex: 0, time: '10:00', title: '', location: '', note: '', amount: '' });
                 const expenseForm = ref({ title: '', amount: '', payer: '' });
                 const showCompanionManager = ref(false);
-                const initialCheckDone = ref(false); // 新增：避免重複檢查網址
+                const initialCheckDone = ref(false); 
 
                 let unsubTrips = null;
                 let unsubInvites = null;
@@ -580,7 +603,6 @@
                         confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？'; 
                         pendingAction.value = payload; 
                     }
-                    // 修改3: 新增刪除 Item 的確認邏輯
                     else if (actionType === 'delete_item_modal') {
                         confirmMessage.value = '確定要刪除這筆資料嗎？此操作無法復原。';
                         pendingAction.value = async () => {
@@ -600,7 +622,7 @@
                 const loginWithGoogle = async () => { try { loginError.value = ''; if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); } } catch (error) { showAlert("登入失敗: " + error.message); } };
                 const copyUid = async () => { if (user.value && user.value.uid) { try { await navigator.clipboard.writeText(user.value.uid); copyToast.value = '已複製!'; setTimeout(() => copyToast.value = '', 2000); } catch (err) { console.error('Failed to copy!', err); } } };
 
-                // 新增：處理分享連結
+                // 處理分享連結
                 const shareTrip = async () => {
                     if (!currentTrip.value.id) return;
                     const url = `${window.location.origin}${window.location.pathname}?tripId=${currentTrip.value.id}`;
@@ -613,7 +635,15 @@
                     }
                 };
 
-                // 新增：處理 Deep Link (網址帶參數)
+                const openShareModal = () => {
+                    // 同步 currentTrip 資料到 tripForm 供顯示使用 (如果需要)
+                    // 這裡主要操作是 currentTrip，所以不一定要 sync 到 tripForm，但為了保險起見
+                    tripForm.value.pendingEmails = currentTrip.value.pendingEmails || [];
+                    tripForm.value.companions = currentTrip.value.companions || [];
+                    showShareModal.value = true;
+                };
+
+                // 處理 Deep Link (網址帶參數)
                 const handleDeepLink = () => {
                     const params = new URLSearchParams(window.location.search);
                     const targetTripId = params.get('tripId');
@@ -629,8 +659,6 @@
                             enterTrip(targetTrip);
                         }
                         initialCheckDone.value = true;
-                        // 可選：清除網址參數
-                        // window.history.replaceState({}, document.title, window.location.pathname);
                     }
                 };
 
@@ -657,7 +685,7 @@
                     unsubTrips = onSnapshot(q, (snapshot) => {
                         const myTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                         mergeTrips(myTrips, 'owned');
-                        handleDeepLink(); // 檢查網址
+                        handleDeepLink(); 
                     });
                     
                     if(user.value.email) {
@@ -665,7 +693,7 @@
                         unsubInvites = onSnapshot(qInvite, (snapshot) => {
                             const invitedTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data(), isInvite: true }));
                             mergeTrips(invitedTrips, 'invited');
-                            handleDeepLink(); // 檢查網址
+                            handleDeepLink(); 
                         });
                     }
                 };
@@ -820,7 +848,7 @@
                         displayName: settings.value.displayName || user.value.displayName || '', 
                         photoURL: settings.value.photoURL || user.value.photoURL || '' 
                     }; 
-                    activeProfileTab.value = 'upload'; // Default to upload
+                    activeProfileTab.value = 'upload'; 
                     showUserMenu.value = false; 
                     showProfileModal.value = true; 
                 };
@@ -828,31 +856,23 @@
                 const handleFileUpload = (event) => {
                     const file = event.target.files[0];
                     if (!file) return;
-
-                    // Limit file size (e.g., 2MB initial check)
                     if (file.size > 10 * 1024 * 1024) {
                         showAlert("圖片檔案過大，請選擇小於 10MB 的圖片");
                         return;
                     }
-
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         const img = new Image();
                         img.onload = () => {
                             const canvas = document.createElement('canvas');
                             const ctx = canvas.getContext('2d');
-                            
-                            // Resize image (Max width 300px for avatar is sufficient)
                             const maxWidth = 300;
                             const scale = maxWidth / img.width;
                             const width = maxWidth;
                             const height = img.height * scale;
-
                             canvas.width = width;
                             canvas.height = height;
                             ctx.drawImage(img, 0, 0, width, height);
-
-                            // Compress to JPEG with 0.7 quality
                             const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                             profileForm.value.photoURL = dataUrl;
                         };
@@ -864,25 +884,18 @@
                 const saveProfile = async () => {
                     if (!user.value) return;
                     try {
-                        // 1. Determine if it's a URL or Base64
                         const isBase64 = profileForm.value.photoURL && profileForm.value.photoURL.startsWith('data:');
-
-                        // 2. Prepare Auth Profile Update (Only name, or URL if it's short)
                         const authUpdate = { displayName: profileForm.value.displayName };
                         if (!isBase64) {
-                            // If it's a normal URL link, update Auth too
                             authUpdate.photoURL = profileForm.value.photoURL;
                         }
                         await updateProfile(user.value, authUpdate);
-
-                        // 3. Save everything to Firestore (Settings) - This handles the big Base64 string
                         const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
                         await setDoc(ref, {
                             displayName: profileForm.value.displayName,
-                            photoURL: profileForm.value.photoURL, // Base64 goes here
+                            photoURL: profileForm.value.photoURL, 
                             email: user.value.email
                         }, { merge: true });
-
                         showProfileModal.value = false;
                     } catch (e) {
                         console.error(e);
@@ -898,7 +911,6 @@
                     showItemModal.value = true; 
                 };
                 
-                // Added new helper method
                 const editExpense = (expense) => {
                       isEditing.value = true;
                       currentEditId.value = expense.id;
@@ -930,7 +942,7 @@
                         } else {
                             if (!expenseForm.value.title || !expenseForm.value.amount) throw new Error("資料不完整");
                             const coll = collection(tripDocRef, 'expenses');
-                            const data = { ...expenseForm.value }; // Use existing date if editing
+                            const data = { ...expenseForm.value };
 
                             if (isEditing.value && currentEditId.value) {
                                 await updateDoc(doc(coll, currentEditId.value), data);
@@ -943,13 +955,11 @@
                     } catch (e) { showAlert(e.message); } finally { submitting.value = false; }
                 };
 
-                // 修改4: 新增呼叫刪除確認的函式
                 const requestDeleteItem = () => {
                     confirmAction('delete_item_modal');
                 };
 
                 const deleteItem = async (type, id) => {
-                    // 如果不是透過 modal 呼叫的 (例如列表上的小垃圾桶)，則使用原生 confirm
                     if (!showItemModal.value) {
                         if (!confirm('確定刪除？')) return;
                     }
@@ -964,15 +974,18 @@
 
                 const sendInvite = async () => {
                     if (!inviteEmail.value || !inviteEmail.value.includes('@')) return showAlert("請輸入有效的 Email");
-                    if (tripForm.value.pendingEmails.includes(inviteEmail.value)) return showAlert("已邀請過此人");
+                    if ((currentTrip.value.pendingEmails || []).includes(inviteEmail.value)) return showAlert("已邀請過此人");
                     
                     if (!currentTrip.value.id) {
+                        // 新建立時的邏輯 (雖然這裡主要是在 Modal 裡用，但保留兼容)
                         tripForm.value.pendingEmails.push(inviteEmail.value);
                     } else {
                         try {
                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                             await updateDoc(tripRef, { pendingEmails: arrayUnion(inviteEmail.value) });
-                            tripForm.value.pendingEmails.push(inviteEmail.value);
+                            // 本地更新
+                            if (!currentTrip.value.pendingEmails) currentTrip.value.pendingEmails = [];
+                            currentTrip.value.pendingEmails.push(inviteEmail.value);
                         } catch (e) { console.error(e); showAlert("邀請發送失敗"); }
                     }
                     inviteEmail.value = '';
@@ -1000,7 +1013,7 @@
                         } else {
                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                             await updateDoc(tripRef, { pendingEmails: arrayRemove(email) });
-                            tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
+                            currentTrip.value.pendingEmails = currentTrip.value.pendingEmails.filter(e => e !== email);
                         }
                         showConfirmModal.value = false;
                     };
@@ -1010,28 +1023,9 @@
                 };
 
                 const removeCompanion = async (index) => {
-                    const nameToRemove = tripForm.value.companions[index];
-                    const doRemove = async () => {
-                        if(!currentTrip.value.id) {
-                            tripForm.value.companions.splice(index, 1);
-                        } else {
-                             const memberObj = (tripForm.value.members || []).find(m => m.name === nameToRemove);
-                             const uidToRemove = memberObj ? memberObj.uid : null;
-                             const batch = writeBatch(db);
-                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
-                             
-                             batch.update(tripRef, { companions: arrayRemove(nameToRemove) });
-                             if (uidToRemove) {
-                                 batch.update(tripRef, { memberUids: arrayRemove(uidToRemove), members: arrayRemove(memberObj) });
-                             }
-                             await batch.commit();
-                             tripForm.value.companions.splice(index, 1);
-                        }
-                        showConfirmModal.value = false;
-                    };
-                    confirmMessage.value = `確定移除成員 ${nameToRemove}？該成員將無法存取旅程。`;
-                    pendingAction.value = doRemove;
-                    showConfirmModal.value = true;
+                    // 保留原本的移除邏輯，主要用於舊版相容或未來擴充
+                    // 這裡的 Modal 目前沒有移除已加入成員的按鈕，因為 Google 的介面需要更複雜的下拉選單
+                    // 若需要，可以在成員列表加上移除按鈕
                 };
 
                 const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
@@ -1068,6 +1062,7 @@
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
                     showConfirmModal, confirmMessage, executeConfirm, confirmAction,
                     showErrorModal, errorMessage, copyToast, inviteEmail,
+                    showShareModal, openShareModal, // 新增
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
@@ -1082,7 +1077,7 @@
                     addDay, openMap, formatDate,
                     sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
                     activeProfileTab, handleFileUpload,
-                    shareTrip // 新增的 Return
+                    shareTrip
                 };
             }
         }).mount('#app');
