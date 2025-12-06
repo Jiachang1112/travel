@@ -300,7 +300,12 @@
                                             <p class="text-xs text-gray-500">{{ member.uid === user.uid ? user.email : '成員' }}</p>
                                         </div>
                                     </div>
-                                    <span class="text-xs text-gray-400 font-medium px-2 py-1 hover:bg-gray-100 rounded cursor-default">{{ index === 0 ? '擁有者' : '編輯者' }}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs text-gray-400 font-medium px-2 py-1 hover:bg-gray-100 rounded cursor-default">{{ index === 0 ? '擁有者' : '編輯者' }}</span>
+                                        <button v-if="isOwner && index !== 0" @click="kickMember(member)" class="text-gray-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition" title="移除成員">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div v-for="email in (currentTrip.pendingEmails || [])" :key="email" class="flex items-center justify-between group opacity-70">
@@ -551,7 +556,7 @@
                 const showDestinationModal = ref(false);
                 const showConfirmModal = ref(false);
                 const showErrorModal = ref(false);
-                const showShareModal = ref(false); // 新增分享 Modal 狀態
+                const showShareModal = ref(false); 
                 const confirmMessage = ref('');
                 const pendingAction = ref(null);
                 const errorMessage = ref('');
@@ -624,7 +629,6 @@
                 const loginWithGoogle = async () => { try { loginError.value = ''; if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); } } catch (error) { showAlert("登入失敗: " + error.message); } };
                 const copyUid = async () => { if (user.value && user.value.uid) { try { await navigator.clipboard.writeText(user.value.uid); copyToast.value = '已複製!'; setTimeout(() => copyToast.value = '', 2000); } catch (err) { console.error('Failed to copy!', err); } } };
 
-                // 處理分享連結
                 const shareTrip = async () => {
                     if (!currentTrip.value.id) return;
                     const url = `${window.location.origin}${window.location.pathname}?tripId=${currentTrip.value.id}`;
@@ -638,14 +642,11 @@
                 };
 
                 const openShareModal = () => {
-                    // 同步 currentTrip 資料到 tripForm 供顯示使用 (如果需要)
-                    // 這裡主要操作是 currentTrip，所以不一定要 sync 到 tripForm，但為了保險起見
                     tripForm.value.pendingEmails = currentTrip.value.pendingEmails || [];
                     tripForm.value.companions = currentTrip.value.companions || [];
                     showShareModal.value = true;
                 };
 
-                // 處理 Deep Link (網址帶參數)
                 const handleDeepLink = () => {
                     const params = new URLSearchParams(window.location.search);
                     const targetTripId = params.get('tripId');
@@ -979,16 +980,11 @@
                     if ((currentTrip.value.pendingEmails || []).includes(inviteEmail.value)) return showAlert("已邀請過此人");
                     
                     if (!currentTrip.value.id) {
-                        // 新旅程（尚未存檔）：必須手動加入，因為還沒有 Firebase 監聽
                         tripForm.value.pendingEmails.push(inviteEmail.value);
                     } else {
-                        // 已存在的旅程：只負責更新資料庫，讓 onSnapshot 自動更新畫面
                         try {
                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                             await updateDoc(tripRef, { pendingEmails: arrayUnion(inviteEmail.value) });
-                            
-                            // ★★★ 關鍵修改：移除了原本這裡的 manual push 程式碼，解決重複顯示問題 ★★★
-                            
                         } catch (e) { console.error(e); showAlert("邀請發送失敗"); }
                     }
                     inviteEmail.value = '';
@@ -1012,19 +1008,46 @@
                 const removePending = async (email) => {
                     const doRemove = async () => {
                         if(!currentTrip.value.id) {
-                            // 新旅程：手動移除
                             tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
                         } else {
-                            // 已存在旅程：更新資料庫即可，監聽器會處理畫面
                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
                             await updateDoc(tripRef, { pendingEmails: arrayRemove(email) });
-                            
-                            // ★★★ 關鍵修改：移除了這裡的手動 filter 更新，解決潛在的同步問題 ★★★
                         }
                         showConfirmModal.value = false;
                     };
                     confirmMessage.value = `確定取消邀請 ${email} 嗎？`;
                     pendingAction.value = doRemove;
+                    showConfirmModal.value = true;
+                };
+
+                // ★★★ 新增：踢出成員功能 ★★★
+                const kickMember = (member) => {
+                    if (!isOwner.value) return;
+
+                    const doKick = async () => {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            const batch = writeBatch(db);
+                            
+                            // 1. 移除 UID 權限
+                            batch.update(tripRef, { memberUids: arrayRemove(member.uid) });
+                            
+                            // 2. 移除成員資料物件 (需完全匹配)
+                            batch.update(tripRef, { members: arrayRemove(member) });
+                            
+                            // 3. 移除旅伴名單 (選單選項)
+                            batch.update(tripRef, { companions: arrayRemove(member.name) });
+
+                            await batch.commit();
+                        } catch (e) {
+                            console.error(e);
+                            showAlert("移除成員失敗");
+                        }
+                        showConfirmModal.value = false;
+                    };
+
+                    confirmMessage.value = `確定要將 ${member.name} 移出旅程嗎？`;
+                    pendingAction.value = doKick;
                     showConfirmModal.value = true;
                 };
 
@@ -1066,7 +1089,7 @@
                     showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
                     showConfirmModal, confirmMessage, executeConfirm, confirmAction,
                     showErrorModal, errorMessage, copyToast, inviteEmail,
-                    showShareModal, openShareModal, // 新增
+                    showShareModal, openShareModal, 
                     activeRegion, regions, selectDestination,
                     profileForm, tripForm, form, expenseForm,
                     schedule, expenses, settings,
@@ -1081,7 +1104,8 @@
                     addDay, openMap, formatDate,
                     sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
                     activeProfileTab, handleFileUpload,
-                    shareTrip
+                    shareTrip,
+                    kickMember // 新增的 Return
                 };
             }
         }).mount('#app');
