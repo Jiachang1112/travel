@@ -179,9 +179,7 @@
                             </div>
                         </div>
                         <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
-                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-    <i class="far fa-calendar-alt text-2xl text-gray-400"></i>
-</div>
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">🗓️</div>
                             <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
                         </div>
                     </div>
@@ -352,6 +350,50 @@
             </Transition>
 
             <Transition name="fade">
+                <div v-if="showDestinationModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl mx-5 overflow-hidden flex flex-col max-h-[70vh]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 class="font-bold text-gray-800">選擇目的地</h3>
+                            <button @click="showDestinationModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex border-b border-gray-200">
+                            <button v-for="key in Object.keys(regions)" :key="key" @click="activeRegion = key" :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'" class="flex-1 py-3 text-sm font-bold border-b-2 transition">{{ key }}</button>
+                        </div>
+                        <div class="p-4 overflow-y-auto grid grid-cols-2 gap-3 bg-gray-50/50 flex-1">
+                            <button v-for="country in regions[activeRegion]" :key="country.name" @click="selectDestination(country)" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group">
+                                <span class="font-medium text-gray-700 group-hover:text-primary">{{ country.name }}</span>
+                                <span class="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ country.currency }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showUserMenu" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showUserMenu = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                        <div class="flex justify-end mb-2">
+                            <button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex flex-col items-center mb-6">
+                            <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
+                            <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
+                            <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
+                            <div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID">
+                                <span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span>
+                                <i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i>
+                            </div>
+                            <p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2"><i class="fas fa-edit"></i> 編輯檔案</button>
+                            <button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> 登出帳號</button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
                 <div v-if="showConfirmModal" class="absolute inset-0 z-[90] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false">
                     <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
                         <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div>
@@ -469,8 +511,8 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label>
                                     <div class="relative">
-                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xl">{{ currentTrip.currency }}</span>
-                                        <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-16 outline-none focus:border-secondary text-2xl font-mono font-bold text-gray-900">
+                                        <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
+                                        <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-secondary text-2xl font-mono font-bold text-gray-900">
                                     </div>
                                 </div>
                                 <div>
