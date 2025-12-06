@@ -349,6 +349,114 @@
                 </div>
             </Transition>
 
+            <Transition name="fade">
+                <div v-if="showDestinationModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl mx-5 overflow-hidden flex flex-col max-h-[70vh]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 class="font-bold text-gray-800">選擇目的地</h3>
+                            <button @click="showDestinationModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex border-b border-gray-200">
+                            <button v-for="key in Object.keys(regions)" :key="key" @click="activeRegion = key" :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'" class="flex-1 py-3 text-sm font-bold border-b-2 transition">{{ key }}</button>
+                        </div>
+                        <div class="p-4 overflow-y-auto grid grid-cols-2 gap-3 bg-gray-50/50 flex-1">
+                            <button v-for="country in regions[activeRegion]" :key="country.name" @click="selectDestination(country)" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group">
+                                <span class="font-medium text-gray-700 group-hover:text-primary">{{ country.name }}</span>
+                                <span class="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ country.currency }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showUserMenu" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showUserMenu = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                        <div class="flex justify-end mb-2">
+                            <button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex flex-col items-center mb-6">
+                            <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
+                            <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
+                            <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
+                            <div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID">
+                                <span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span>
+                                <i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i>
+                            </div>
+                            <p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2"><i class="fas fa-edit"></i> 編輯檔案</button>
+                            <button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> 登出帳號</button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showConfirmModal" class="absolute inset-0 z-[90] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false">
+                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">確認操作</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</p>
+                        <div class="flex gap-3">
+                            <button @click="showConfirmModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button>
+                            <button @click="executeConfirm" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">確定</button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showErrorModal" class="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showErrorModal = false">
+                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation"></i></div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">提示</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ errorMessage }}</p>
+                        <button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">確定</button>
+                    </div>
+                </div>
+            </Transition>
+            
+            <Transition name="fade">
+                <div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3>
+                            <button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="flex flex-col items-center mb-6">
+                            <img :src="profileForm.photoURL || 'https://ui-avatars.com/api/?name=' + (profileForm.displayName || 'User')" class="w-24 h-24 rounded-full border-4 border-gray-50 shadow-md mb-4 object-cover bg-gray-100">
+                            
+                            <div class="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                                <button @click="activeProfileTab = 'upload'" :class="activeProfileTab === 'upload' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">📷 上傳圖片</button>
+                                <button @click="activeProfileTab = 'url'" :class="activeProfileTab === 'url' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">🔗 圖片連結</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label>
+                                <input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                            
+                            <div v-if="activeProfileTab === 'upload'">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">選擇照片</label>
+                                <input type="file" accept="image/*" @change="handleFileUpload" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100 cursor-pointer">
+                                <p class="text-[10px] text-gray-400 mt-1">* 圖片將自動壓縮以節省空間</p>
+                            </div>
+
+                            <div v-else>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label>
+                                <input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button>
+                    </div>
+                </div>
+            </Transition>
+
             <Transition name="slide-up">
                 <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="showItemModal = false">
                     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl h-[85vh] sm:h-auto flex flex-col">
@@ -471,50 +579,6 @@
                                 <button @click="saveTrip" class="flex-[2] py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存變更' : '建立旅程' }}</button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </Transition>
-
-            <Transition name="fade"><div v-if="showDestinationModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false"><div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl mx-5 overflow-hidden flex flex-col max-h-[70vh]"><div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50"><h3 class="font-bold text-gray-800">選擇目的地</h3><button @click="showDestinationModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button></div><div class="flex border-b border-gray-200"><button v-for="key in Object.keys(regions)" :key="key" @click="activeRegion = key" :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'" class="flex-1 py-3 text-sm font-bold border-b-2 transition">{{ key }}</button></div><div class="p-4 overflow-y-auto grid grid-cols-2 gap-3 bg-gray-50/50 flex-1"><button v-for="country in regions[activeRegion]" :key="country.name" @click="selectDestination(country)" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group"><span class="font-medium text-gray-700 group-hover:text-primary">{{ country.name }}</span><span class="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ country.currency }}</span></button></div></div></div></Transition>
-            <Transition name="fade"><div v-if="showUserMenu" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showUserMenu = false"><div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5"><div class="flex justify-end mb-2"><button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button></div><div class="flex flex-col items-center mb-6"><img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover"><h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3><p class="text-sm text-gray-400 font-mono">{{ user.email }}</p><div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID"><span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span><i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i></div><p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p></div><div class="flex flex-col gap-3"><button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2"><i class="fas fa-edit"></i> 編輯檔案</button><button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> 登出帳號</button></div></div></div></Transition>
-            <Transition name="fade"><div v-if="showConfirmModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false"><div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center"><div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-lg font-bold text-gray-800 mb-2">確認操作</h3><p class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</p><div class="flex gap-3"><button @click="showConfirmModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button><button @click="executeConfirm" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">確定</button></div></div></div></Transition>
-            <Transition name="fade"><div v-if="showErrorModal" class="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showErrorModal = false"><div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center"><div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation"></i></div><h3 class="text-lg font-bold text-gray-800 mb-2">提示</h3><p class="text-sm text-gray-500 mb-6">{{ errorMessage }}</p><button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">確定</button></div></div></Transition>
-            
-            <Transition name="fade">
-                <div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false">
-                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3>
-                            <button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-                        </div>
-                        
-                        <div class="flex flex-col items-center mb-6">
-                            <img :src="profileForm.photoURL || 'https://ui-avatars.com/api/?name=' + (profileForm.displayName || 'User')" class="w-24 h-24 rounded-full border-4 border-gray-50 shadow-md mb-4 object-cover bg-gray-100">
-                            
-                            <div class="flex gap-2 p-1 bg-gray-100 rounded-lg">
-                                <button @click="activeProfileTab = 'upload'" :class="activeProfileTab === 'upload' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">📷 上傳圖片</button>
-                                <button @click="activeProfileTab = 'url'" :class="activeProfileTab === 'url' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">🔗 圖片連結</button>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4 mb-6">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label>
-                                <input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                            </div>
-                            
-                            <div v-if="activeProfileTab === 'upload'">
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">選擇照片</label>
-                                <input type="file" accept="image/*" @change="handleFileUpload" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100 cursor-pointer">
-                                <p class="text-[10px] text-gray-400 mt-1">* 圖片將自動壓縮以節省空間</p>
-                            </div>
-
-                            <div v-else>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label>
-                                <input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
-                            </div>
-                        </div>
-                        <button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button>
                     </div>
                 </div>
             </Transition>
@@ -1020,7 +1084,6 @@
                     showConfirmModal.value = true;
                 };
 
-                // ★★★ 新增：踢出成員功能 ★★★
                 const kickMember = (member) => {
                     if (!isOwner.value) return;
 
@@ -1032,10 +1095,10 @@
                             // 1. 移除 UID 權限
                             batch.update(tripRef, { memberUids: arrayRemove(member.uid) });
                             
-                            // 2. 移除成員資料物件 (需完全匹配)
+                            // 2. 移除成員資料物件
                             batch.update(tripRef, { members: arrayRemove(member) });
                             
-                            // 3. 移除旅伴名單 (選單選項)
+                            // 3. 移除旅伴名單
                             batch.update(tripRef, { companions: arrayRemove(member.name) });
 
                             await batch.commit();
