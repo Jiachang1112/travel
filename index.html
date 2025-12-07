@@ -315,65 +315,27 @@
                             <p class="text-xs font-bold text-gray-500 mb-3">具有存取權的使用者</p>
                             
                             <div class="space-y-4">
-                                <!-- ====== members list (REPLACE THIS WHOLE BLOCK) ====== -->
-<div class="px-4 py-2">
-  <div v-if="!(currentTrip && currentTrip.members && currentTrip.members.length)" class="text-sm text-gray-500">
-    尚無成員
-  </div>
+                                <div v-for="(member, index) in (currentTrip.members || [])" :key="index" class="flex items-center justify-between group">
+                                    <div class="flex items-center gap-3">
+                                        <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
+                                        <div>
+                                           <p class="text-sm font-bold text-gray-800">
+  {{ member.name || (member.uid === user.uid ? user.displayName : '成員') }}
+  <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
+</p>
+<p class="text-xs text-gray-500">
+  {{ member.email || (member.uid === user.uid ? user.email : '') }}
+</p>
 
-  <div v-else class="space-y-3">
-    <div
-      v-for="(member, index) in (currentTrip.members || [])"
-      :key="member.uid || index"
-      class="flex items-start justify-between gap-3"
-    >
-      <div class="flex items-center gap-3">
-        <!-- avatar -->
-        <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
-          <img v-if="member.photo" :src="member.photo" alt="avatar" class="w-full h-full object-cover" />
-          <span v-else class="text-white font-bold">{{ (member.name||'人').slice(0,1) }}</span>
-        </div>
-
-        <!-- name + email (the circled place) -->
-        <div class="leading-tight">
-          <!-- 主字：顯示 member.name（若沒有改顯示成員id or '成員'） -->
-          <div class="text-sm font-semibold text-gray-800">
-            {{ member.name || (member.uid === user.uid ? (user.displayName || '我') : '成員') }}
-            <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
-          </div>
-
-          <!-- 次字：顯示 email（若沒有 email 且為自己則顯示 user.email；否則顯示 '-'） -->
-          <div class="text-xs text-gray-500">
-            {{ member.email || (member.uid === user.uid ? user.email : '-') }}
-          </div>
-        </div>
-      </div>
-
-      <!-- 角色標籤 / 權限（右邊） -->
-      <div class="flex items-center gap-2">
-        <!-- 若 member.owner 或 member.role 可用，顯示對應字；否則預設成員 -->
-        <div class="text-xs text-gray-500">
-          <template v-if="member.role === 'owner' || member.isOwner">擁有者</template>
-          <template v-else-if="member.role === 'editor'">編輯者</template>
-          <template v-else>成員</template>
-        </div>
-
-        <!-- 若有移除按鈕，保留按鈕外觀（若你不需要可刪） -->
-        <button
-          v-if="canRemoveMember && canRemoveMember(member)"
-          @click="$emit('remove-member', member)"
-          class="ml-2 text-gray-400 hover:text-gray-700"
-          aria-label="移除成員"
-          title="移除成員"
-        >
-          ✕
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-<!-- ====== end members list ====== -->
-
+                                            </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs text-gray-400 font-medium px-2 py-1 hover:bg-gray-100 rounded cursor-default">{{ index === 0 ? '擁有者' : '編輯者' }}</span>
+                                        <button v-if="isOwner && index !== 0" @click="kickMember(member)" class="text-gray-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition" title="移除成員">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
 
                                 <div v-for="email in (currentTrip.pendingEmails || [])" :key="email" class="flex items-center justify-between group opacity-70">
                                     <div class="flex items-center gap-3">
