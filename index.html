@@ -75,15 +75,21 @@
 
                         <div v-if="currentView === 'planner' && currentTrip.accessMode === 'public'" class="flex -space-x-2 overflow-hidden py-1">
                             <div v-for="viewer in activeViewers" :key="viewer.uid" 
-                                 class="relative inline-block group cursor-default" :title="viewer.name">
+                                 class="relative inline-block group" 
+                                 @click="checkViewerStatus(viewer)">
                                 <img :src="viewer.photo || 'https://ui-avatars.com/api/?name='+viewer.name" 
-                                     class="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm bg-gray-100">
+                                     :class="viewer.isIdle ? 'opacity-50 grayscale cursor-help' : 'cursor-pointer'"
+                                     class="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm bg-gray-100 transition-all hover:scale-110 hover:z-20">
+                                
+                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                    {{ viewer.name }} <span v-if="viewer.isIdle" class="text-gray-400">(閒置)</span>
+                                </div>
                             </div>
                             <div v-if="activeViewersCount > 4" class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] text-gray-500 font-bold z-10">
                                 +{{ activeViewersCount - 4 }}
                             </div>
                         </div>
-                        </div>
+                    </div>
                 </div>
                 
                 <div class="flex items-center gap-3 flex-shrink-0">
@@ -1066,13 +1072,14 @@
                     unsubPresence = onSnapshot(viewersRef, (snapshot) => {
                         const now = Date.now();
                         activeViewers.value = snapshot.docs
-                            .map(d => d.data())
-                            .filter(v => {
-                                // 過濾超過 30 秒沒反應的
-                                return (now - v.lastActive) < 30000;
+                            .map(d => {
+                                const data = d.data();
+                                // 計算是否閒置 (超過 30 秒)
+                                const isIdle = (now - data.lastActive) > 30000;
+                                return { ...data, isIdle };
                             })
-                            // 這裡可以決定要不要過濾掉自己，目前保留自己讓測試更有感
-                            // .filter(v => v.uid !== user.value.uid);
+                            // 只過濾掉太久沒上線的 (例如超過 1 小時) 以免資料堆積
+                            .filter(v => (now - v.lastActive) < 3600000);
                     });
                 };
 
@@ -1091,6 +1098,19 @@
                         const viewerRef = doc(db, 'artifacts', appId, 'trips', tripId, 'viewers', user.value.uid);
                         // 不 await 以免卡住 UI
                         deleteDoc(viewerRef).catch(e => {}); 
+                    }
+                };
+
+                const checkViewerStatus = (viewer) => {
+                    if (viewer.isIdle) {
+                        // 計算閒置多久 (分鐘)
+                        const minutes = Math.floor((Date.now() - viewer.lastActive) / 60000);
+                        let timeStr = "不到 1 分鐘";
+                        if (minutes > 0) timeStr = `約 ${minutes} 分鐘`;
+                        
+                        showAlert(`${viewer.name} 目前處於閒置狀態 (${timeStr}未活動)`);
+                    } else {
+                        showAlert(`${viewer.name} 目前在線上`);
                     }
                 };
                 // === End Presence Logic ===
@@ -1549,7 +1569,8 @@
                     setAccessRole,
                     canEdit,
                     activeViewers,
-                    activeViewersCount
+                    activeViewersCount,
+                    checkViewerStatus
                 };
             }
         }).mount('#app');
