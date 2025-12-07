@@ -254,19 +254,19 @@
 
                         <div v-if="sortedExpenses.length > 0" class="space-y-3">
                             <div v-for="expense in sortedExpenses" :key="expense.id" @click="editExpense(expense)" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
-                                        {{ expense.payer ? expense.payer.charAt(0) : '?' }}
-                                    </div>
-                                    <div>
-                                        <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
-                                        <p class="text-xs text-gray-400 mt-0.5">
-                                            {{ formatDate(expense.date) }} · {{ expense.payer }}
-                                            <span v-if="expense.splitMode === 'custom'" class="ml-1 text-secondary bg-pink-50 px-1 rounded">自訂</span>
-                                            <span v-else-if="expense.involved && expense.involved.length < currentTrip.companions.length" class="ml-1 text-secondary bg-pink-50 px-1 rounded">部分</span>
-                                        </p>
-                                    </div>
-                                </div>
+                               <div class="flex items-center gap-3">
+    <img :src="member.photo || '...'" class="...">
+    <div>
+        <p class="text-sm font-bold text-gray-800">
+            {{ member.name || (member.uid === user.uid ? user.displayName : '成員') }}
+            <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
+        </p>
+        
+        <p class="text-xs text-gray-500">
+            {{ member.email || (member.uid === user.uid ? user.email : '未提供 Email') }}
+        </p>
+        </div>
+</div>
                                 <div class="text-right">
                                     <p class="font-bold font-mono text-gray-800">{{ currentTrip.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
                                 </div>
