@@ -76,11 +76,11 @@
                 </div>
                 
                 <div class="flex items-center gap-3">
-                    <button v-if="currentView === 'planner'" @click="openTripSettings" class="w-10 h-10 rounded-full bg-gray-50 text-gray-500 hover:text-gray-800 hover:bg-gray-100 flex items-center justify-center transition">
+                    <button v-if="currentView === 'planner' && canEdit" @click="openTripSettings" class="w-10 h-10 rounded-full bg-gray-50 text-gray-500 hover:text-gray-800 hover:bg-gray-100 flex items-center justify-center transition">
                         <i class="fas fa-cog"></i>
                     </button>
                     
-                    <button v-if="currentView === 'planner'" @click="openShareModal" class="ml-1 flex items-center gap-2 px-5 py-2 bg-[#c2e7ff] text-[#001d35] rounded-[24px] hover:bg-[#b3d7ef] transition font-medium text-sm shadow-sm active:scale-95">
+                    <button v-if="currentView === 'planner' && canEdit" @click="openShareModal" class="ml-1 flex items-center gap-2 px-5 py-2 bg-[#c2e7ff] text-[#001d35] rounded-[24px] hover:bg-[#b3d7ef] transition font-medium text-sm shadow-sm active:scale-95">
                         <i class="fas fa-lock text-xs"></i>
                         <span>共用</span>
                     </button>
@@ -143,7 +143,7 @@
                                 class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
                                 Day {{ index + 1 }}
                             </button>
-                            <button @click="addDay" class="flex-shrink-0 w-10 flex items-center justify-center rounded-xl bg-gray-200 text-gray-500 hover:bg-gray-300">
+                            <button v-if="canEdit" @click="addDay" class="flex-shrink-0 w-10 flex items-center justify-center rounded-xl bg-gray-200 text-gray-500 hover:bg-gray-300">
                                 <i class="fas fa-plus text-xs"></i>
                             </button>
                         </div>
@@ -155,8 +155,8 @@
                                     <div class="flex justify-between items-start mb-1">
                                         <span class="text-primary font-bold text-lg font-mono tracking-tight">{{ event.time }}</span>
                                         <div class="flex space-x-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
-                                            <button @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                            <button v-if="canEdit" @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
+                                            <button v-if="canEdit" @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
                                         </div>
                                     </div>
                                     
@@ -209,7 +209,7 @@
                         <div v-if="currentTrip.budget > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
                             <div class="flex justify-between items-end mb-2">
                                 <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide">預算狀態</h3>
-                                <button @click="openTripSettings" class="text-xs text-primary font-bold hover:underline">調整</button>
+                                <button v-if="canEdit" @click="openTripSettings" class="text-xs text-primary font-bold hover:underline">調整</button>
                             </div>
                             <div class="flex justify-between text-xs text-gray-500 mb-1">
                                 <span>已用 {{ Math.round(budgetPercentage) }}%</span>
@@ -264,7 +264,7 @@
 
             </main>
 
-            <button @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
+            <button v-if="currentView === 'dashboard' || canEdit" @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
 
             <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
                 <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
@@ -746,7 +746,6 @@
                 const initialCheckDone = ref(false); 
                 const linkCopied = ref(false); 
                 
-                // New UI states for access dropdowns
                 const showAccessMenu = ref(false);
                 const showRoleMenu = ref(false);
 
@@ -758,8 +757,15 @@
                 let unsubSettings = null;
 
                 const isOwner = computed(() => {
-                    if (!currentTrip.value.memberUids || currentTrip.value.memberUids.length === 0) return true; 
+                    if (!currentTrip.value || !currentTrip.value.memberUids || currentTrip.value.memberUids.length === 0) return true; 
                     return currentTrip.value.memberUids[0] === user.value.uid; 
+                });
+
+                const canEdit = computed(() => {
+                    if (!user.value || !currentTrip.value) return false;
+                    if (currentTrip.value.memberUids && currentTrip.value.memberUids.includes(user.value.uid)) return true;
+                    if (currentTrip.value.accessMode === 'public' && currentTrip.value.accessRole === 'editor') return true;
+                    return false;
                 });
 
                 const initAuth = async () => { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { await signInAnonymously(auth); } } };
@@ -817,7 +823,6 @@
                 const openShareModal = () => {
                     tripForm.value.pendingEmails = currentTrip.value.pendingEmails || [];
                     tripForm.value.companions = currentTrip.value.companions || [];
-                    // Ensure accessMode defaults exist if not in DB
                     if (!currentTrip.value.accessMode) currentTrip.value.accessMode = 'restricted';
                     if (!currentTrip.value.accessRole) currentTrip.value.accessRole = 'viewer';
                     showShareModal.value = true;
@@ -860,6 +865,17 @@
                             enterTrip(targetTrip);
                         }
                         initialCheckDone.value = true;
+                    } else {
+                        const tripRef = doc(db, 'artifacts', appId, 'trips', targetTripId);
+                        getDoc(tripRef).then(snap => {
+                            if(snap.exists()) {
+                                const data = snap.data();
+                                if(data.accessMode === 'public' || (data.memberUids && data.memberUids.includes(user.value.uid))) {
+                                    enterTrip({id: snap.id, ...data});
+                                    initialCheckDone.value = true;
+                                }
+                            }
+                        });
                     }
                 };
 
@@ -911,7 +927,9 @@
                         currentTrip.value = {}; 
                         showTripModal.value = true;
                         showCompanionManager.value = false;
-                    } else { openAddItemModal(); }
+                    } else { 
+                        if(canEdit.value) openAddItemModal(); 
+                    }
                 };
 
                 const calculateDays = (start, end) => {
@@ -1005,12 +1023,22 @@
                             return;
                         }
                         const data = docSnap.data();
-                        if (!data.memberUids || !data.memberUids.includes(user.value.uid)) {
-                            showAlert("您已被移出此旅程"); 
+                        
+                        // Check Permissions
+                        const isMember = data.memberUids && data.memberUids.includes(user.value.uid);
+                        const isPublic = data.accessMode === 'public';
+
+                        if (!isMember && !isPublic) {
+                            showAlert("您沒有權限存取此旅程"); 
                             exitTrip(); 
                             return;
                         }
+
                         currentTrip.value = { id: trip.id, ...data };
+                    }, (error) => {
+                        console.error(error);
+                        showAlert("無法讀取資料 (權限不足)");
+                        exitTrip();
                     });
 
                     unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (s) => schedule.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -1142,6 +1170,7 @@
                 };
                 
                 const editExpense = (expense) => {
+                    if(!canEdit.value) return;
                     isEditing.value = true;
                     currentEditId.value = expense.id;
                     
@@ -1164,6 +1193,7 @@
                 };
 
                 const editEvent = (event) => { 
+                    if(!canEdit.value) return;
                     isEditing.value = true; 
                     currentEditId.value = event.id; 
                     form.value = { ...event }; 
@@ -1221,6 +1251,7 @@
                 };
 
                 const deleteItem = async (type, id) => {
+                    if(!canEdit.value) return;
                     if (!showItemModal.value) {
                         if (!confirm('確定刪除？')) return;
                     }
@@ -1229,7 +1260,7 @@
                 };
 
                 const selectDestination = (c) => { tripForm.value.destination = c.name; tripForm.value.currency = c.currency; showDestinationModal.value = false; };
-                const addDay = async () => { if (!currentTrip.value.endDate) return showAlert("請先設定旅遊日期"); const date = new Date(currentTrip.value.endDate); date.setDate(date.getDate() + 1); const newEndDate = date.toISOString().split('T')[0]; const tripsRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id); await updateDoc(tripsRef, { endDate: newEndDate }); currentTrip.value.endDate = newEndDate; days.value = calculateDays(currentTrip.value.startDate, newEndDate); };
+                const addDay = async () => { if(!canEdit.value) return; if (!currentTrip.value.endDate) return showAlert("請先設定旅遊日期"); const date = new Date(currentTrip.value.endDate); date.setDate(date.getDate() + 1); const newEndDate = date.toISOString().split('T')[0]; const tripsRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id); await updateDoc(tripsRef, { endDate: newEndDate }); currentTrip.value.endDate = newEndDate; days.value = calculateDays(currentTrip.value.startDate, newEndDate); };
                 const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${encodeURIComponent(loc)}`, '_blank');
                 const formatDate = (iso) => { const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; };
 
@@ -1410,11 +1441,13 @@
                     customSplitSum, 
                     remainingSplit, 
                     toggleInvolved,
-                    linkCopied,
-                    showAccessMenu, showRoleMenu, setAccessMode, setAccessRole // Added
+                    linkCopied, // Added to return
+                    showAccessMenu,
+                    showRoleMenu,
+                    setAccessMode,
+                    setAccessRole,
+                    canEdit
                 };
             }
         }).mount('#app');
     </script>
-</body>
-</html>
