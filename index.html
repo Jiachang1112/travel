@@ -319,9 +319,14 @@
                                     <div class="flex items-center gap-3">
                                         <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
                                         <div>
-                                            <p class="text-sm font-bold text-gray-800">{{ member.name }} <span v-if="member.uid === user.uid" class="text-gray-400 font-normal">(you)</span></p>
-                                            <p class="text-xs text-gray-500">{{ member.uid === user.uid ? user.email : '成員' }}</p>
-                                        </div>
+                                            <p class="text-sm font-bold text-gray-800">
+                                                {{ member.uid === user.uid ? user.email : (member.email || member.name) }} 
+                                                
+                                                <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
+                                                <span v-else class="text-gray-400 font-normal text-xs ml-1">(成員)</span>
+                                            </p>
+                                            <p class="text-xs text-gray-500">{{ member.name }}</p>
+                                            </div>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="text-xs text-gray-400 font-medium px-2 py-1 hover:bg-gray-100 rounded cursor-default">{{ index === 0 ? '擁有者' : '編輯者' }}</span>
@@ -994,7 +999,8 @@
                     
                     if(!currentTrip.value.id) {
                          tripData.memberUids = [user.value.uid];
-                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL}];
+                         // 修改：加入 email
+                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL, email: user.value.email}];
                          tripData.accessMode = 'restricted';
                          tripData.accessRole = 'viewer';
                     } else {
@@ -1404,7 +1410,8 @@
                     const tripRef = doc(db, 'artifacts', appId, 'trips', trip.id);
                     const batch = writeBatch(db);
                     if (accept) {
-                        const myData = {uid: user.value.uid, name: settings.value.displayName || user.value.displayName || '新成員', photo: settings.value.photoURL || user.value.photoURL};
+                        // 修改：加入 email 到成員資料
+                        const myData = {uid: user.value.uid, name: settings.value.displayName || user.value.displayName || '新成員', photo: settings.value.photoURL || user.value.photoURL, email: user.value.email};
                         batch.update(tripRef, { 
                             memberUids: arrayUnion(user.value.uid),
                             pendingEmails: arrayRemove(user.value.email),
