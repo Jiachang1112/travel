@@ -343,8 +343,11 @@
                             </div>
 
                             <div class="flex justify-between items-center pt-2">
-                                <button @click="shareTrip" class="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 text-googleBlue text-sm font-bold hover:bg-blue-50 transition">
-                                    <i class="fas fa-link"></i> 複製連結
+                                <button @click="shareTrip"
+                                    :class="linkCopied ? 'border-green-200 text-green-600 bg-green-50' : 'border-gray-300 text-googleBlue hover:bg-blue-50'"
+                                    class="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold transition">
+                                    <i :class="linkCopied ? 'fas fa-check' : 'fas fa-link'"></i>
+                                    <span>{{ linkCopied ? '連結已複製' : '複製連結' }}</span>
                                 </button>
                                 <button @click="showShareModal = false" class="px-6 py-2 rounded-full bg-googleBlue text-white text-sm font-bold hover:bg-blue-700 shadow-sm transition">
                                     完成
@@ -692,7 +695,6 @@
                 const tripForm = ref({ destination: '', currency: '', companions: [], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
                 const form = ref({ dayIndex: 0, time: '10:00', title: '', location: '', note: '', amount: '' });
                 
-                // 改寫 expenseForm 初始化
                 const expenseForm = ref({ 
                     title: '', 
                     amount: '', 
@@ -704,6 +706,7 @@
 
                 const showCompanionManager = ref(false);
                 const initialCheckDone = ref(false); 
+                const linkCopied = ref(false); // New state for copy feedback
 
                 let unsubTrips = null;
                 let unsubInvites = null;
@@ -762,8 +765,11 @@
                     const url = `${window.location.origin}${window.location.pathname}?tripId=${currentTrip.value.id}`;
                     try {
                         await navigator.clipboard.writeText(url);
-                        copyToast.value = '連結已複製！傳送給旅伴吧';
-                        setTimeout(() => copyToast.value = '', 3000);
+                        
+                        // Visual feedback on button
+                        linkCopied.value = true;
+                        setTimeout(() => { linkCopied.value = false; }, 3000);
+
                     } catch (err) {
                         showAlert("複製失敗，請手動複製網址");
                     }
@@ -1034,7 +1040,6 @@
                     }
                 };
                 
-                // 新增計算屬性
                 const customSplitSum = computed(() => {
                     if (!expenseForm.value.customAmounts) return 0;
                     return Object.values(expenseForm.value.customAmounts).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -1258,7 +1263,6 @@
                     return { totalTrips: myTrips.length, totalDays, uniquePlaces: places.size };
                 });
                 
-                // 改寫 debts 邏輯
                 const debts = computed(() => {
                     const usersList = currentTrip.value.companions || []; 
                     if (usersList.length < 2) return [];
@@ -1339,7 +1343,8 @@
                     kickMember,
                     customSplitSum, 
                     remainingSplit, 
-                    toggleInvolved
+                    toggleInvolved,
+                    linkCopied // Added to return
                 };
             }
         }).mount('#app');
