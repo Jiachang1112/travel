@@ -319,12 +319,14 @@
                                     <div class="flex items-center gap-3">
                                         <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
                                         <div>
-                                            <p class="text-sm font-bold text-gray-800">
-                                                {{ member.name }} 
-                                                <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
-                                                <span v-else class="text-gray-400 font-normal text-xs ml-1">(成員)</span>
-                                            </p>
-                                            <p class="text-xs text-gray-500">{{ member.uid === user.uid ? user.email : (member.email || '成員') }}</p>
+                                           <p class="text-sm font-bold text-gray-800">
+  {{ member.name || (member.uid === user.uid ? user.displayName : '成員') }}
+  <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
+</p>
+<p class="text-xs text-gray-500">
+  {{ member.email || (member.uid === user.uid ? user.email : '') }}
+</p>
+
                                             </div>
                                     </div>
                                     <div class="flex items-center gap-2">
