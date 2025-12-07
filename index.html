@@ -243,7 +243,11 @@
                                     </div>
                                     <div>
                                         <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
-                                        <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(expense.date) }} · {{ expense.payer }}</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">
+                                            {{ formatDate(expense.date) }} · {{ expense.payer }}
+                                            <span v-if="expense.splitMode === 'custom'" class="ml-1 text-secondary bg-pink-50 px-1 rounded">自訂</span>
+                                            <span v-else-if="expense.involved && expense.involved.length < currentTrip.companions.length" class="ml-1 text-secondary bg-pink-50 px-1 rounded">部分</span>
+                                        </p>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -511,20 +515,68 @@
 
                             <div v-if="activeTab === 'expense'" class="space-y-5">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">金額</label>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">總金額</label>
                                     <div class="relative">
-    <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
-    <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-14 outline-none focus:border-secondary text-2xl font-mono font-bold text-gray-900">
-</div>
+                                        <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
+                                        <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-14 outline-none focus:border-secondary text-2xl font-mono font-bold text-gray-900">
+                                    </div>
                                 </div>
+                            
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label>
                                     <input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary text-gray-900">
                                 </div>
+                            
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">付款人</label>
-                                    <div class="grid grid-cols-3 gap-2">
-                                        <button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="py-2.5 rounded-lg text-sm font-medium transition">{{ u }}</button>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">先墊付的人 (付款人)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                                            {{ u }}
+                                        </button>
+                                    </div>
+                                </div>
+                            
+                                <div class="pt-2 border-t border-gray-100">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <label class="text-xs font-bold text-gray-500 uppercase">分帳方式</label>
+                                        <div class="flex bg-gray-100 p-1 rounded-lg">
+                                            <button @click="expenseForm.splitMode = 'even'" :class="expenseForm.splitMode === 'even' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'" class="px-3 py-1 text-xs font-bold rounded-md transition">平均分攤</button>
+                                            <button @click="expenseForm.splitMode = 'custom'" :class="expenseForm.splitMode === 'custom' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'" class="px-3 py-1 text-xs font-bold rounded-md transition">自訂金額</button>
+                                        </div>
+                                    </div>
+                            
+                                    <div v-if="expenseForm.splitMode === 'even'" class="space-y-2">
+                                        <p class="text-xs text-gray-400 mb-2">勾選參與分帳的人，系統將自動平分</p>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button v-for="u in currentTrip.companions" :key="u" 
+                                                @click="toggleInvolved(u)"
+                                                :class="expenseForm.involved.includes(u) ? 'border-secondary bg-pink-50 text-secondary' : 'border-gray-200 text-gray-400'"
+                                                class="flex items-center gap-2 p-2 rounded-lg border text-sm font-medium transition">
+                                                <i :class="expenseForm.involved.includes(u) ? 'fa-check-circle' : 'fa-circle'" class="fas"></i>
+                                                {{ u }}
+                                            </button>
+                                        </div>
+                                        <p class="text-right text-xs text-secondary font-mono mt-2" v-if="expenseForm.amount && expenseForm.involved.length > 0">
+                                            每人約 {{ (expenseForm.amount / expenseForm.involved.length).toFixed(1) }}
+                                        </p>
+                                    </div>
+                            
+                                    <div v-else class="space-y-3">
+                                         <p class="text-xs text-gray-400 mb-2">輸入每個人應付的金額</p>
+                                         <div v-for="u in currentTrip.companions" :key="u" class="flex items-center justify-between">
+                                             <span class="text-sm font-medium text-gray-700">{{ u }}</span>
+                                             <div class="relative w-32">
+                                                 <span class="absolute left-3 top-2 text-gray-400 text-xs">{{ currentTrip.currency }}</span>
+                                                 <input type="number" v-model.number="expenseForm.customAmounts[u]" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 pl-8 pr-2 text-right font-mono text-sm focus:border-secondary outline-none" placeholder="0">
+                                             </div>
+                                         </div>
+                                         
+                                         <div class="flex justify-between items-center pt-2 border-t border-gray-100 text-xs">
+                                             <span class="text-gray-500">已分配: {{ customSplitSum }}</span>
+                                             <span :class="remainingSplit === 0 ? 'text-green-500' : 'text-red-500'" class="font-bold">
+                                                 {{ remainingSplit === 0 ? '完美分配' : (remainingSplit > 0 ? `還有 ${remainingSplit} 未分配` : `超出了 ${Math.abs(remainingSplit)}`) }}
+                                             </span>
+                                         </div>
                                     </div>
                                 </div>
                             </div>
@@ -639,7 +691,17 @@
                 const activeProfileTab = ref('upload'); 
                 const tripForm = ref({ destination: '', currency: '', companions: [], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
                 const form = ref({ dayIndex: 0, time: '10:00', title: '', location: '', note: '', amount: '' });
-                const expenseForm = ref({ title: '', amount: '', payer: '' });
+                
+                // 改寫 expenseForm 初始化
+                const expenseForm = ref({ 
+                    title: '', 
+                    amount: '', 
+                    payer: '', 
+                    splitMode: 'even', 
+                    involved: [], 
+                    customAmounts: {} 
+                });
+
                 const showCompanionManager = ref(false);
                 const initialCheckDone = ref(false); 
 
@@ -972,19 +1034,62 @@
                     }
                 };
                 
+                // 新增計算屬性
+                const customSplitSum = computed(() => {
+                    if (!expenseForm.value.customAmounts) return 0;
+                    return Object.values(expenseForm.value.customAmounts).reduce((a, b) => a + (Number(b) || 0), 0);
+                });
+
+                const remainingSplit = computed(() => {
+                    return (Number(expenseForm.value.amount) || 0) - customSplitSum.value;
+                });
+
+                const toggleInvolved = (name) => {
+                    const idx = expenseForm.value.involved.indexOf(name);
+                    if (idx === -1) expenseForm.value.involved.push(name);
+                    else expenseForm.value.involved.splice(idx, 1);
+                };
+
                 const openAddItemModal = () => { 
                     isEditing.value = false; 
                     currentEditId.value = null; 
+                    
                     form.value = { dayIndex: currentDayIndex.value, time: '09:00', title: '', location: '', note: '', amount: '' }; 
-                    expenseForm.value = { title: '', amount: '', payer: currentTrip.value.companions[0] || '' }; 
+                    
+                    const allCompanions = currentTrip.value.companions || [];
+                    expenseForm.value = { 
+                        title: '', 
+                        amount: '', 
+                        payer: currentTrip.value.companions[0] || '',
+                        splitMode: 'even',
+                        involved: [...allCompanions], 
+                        customAmounts: {}
+                    };
+                    allCompanions.forEach(c => expenseForm.value.customAmounts[c] = 0);
+
                     showItemModal.value = true; 
                 };
                 
                 const editExpense = (expense) => {
-                      isEditing.value = true;
-                      currentEditId.value = expense.id;
-                      expenseForm.value = { ...expense };
-                      showItemModal.value = true;
+                    isEditing.value = true;
+                    currentEditId.value = expense.id;
+                    
+                    const allCompanions = currentTrip.value.companions || [];
+                    const splitMode = expense.splitMode || 'even';
+                    const involved = expense.involved || [...allCompanions];
+                    const customAmounts = expense.customAmounts || {};
+                    
+                    allCompanions.forEach(c => {
+                        if (customAmounts[c] === undefined) customAmounts[c] = 0;
+                    });
+
+                    expenseForm.value = { 
+                        ...expense,
+                        splitMode,
+                        involved,
+                        customAmounts
+                    };
+                    showItemModal.value = true;
                 };
 
                 const editEvent = (event) => { 
@@ -1010,8 +1115,24 @@
                             else await addDoc(coll, data);
                         } else {
                             if (!expenseForm.value.title || !expenseForm.value.amount) throw new Error("資料不完整");
+                            
+                            if (expenseForm.value.splitMode === 'custom') {
+                                if (Math.abs(remainingSplit.value) > 1) { 
+                                    throw new Error("自訂分帳總和與總金額不符");
+                                }
+                            } else {
+                                if (expenseForm.value.involved.length === 0) throw new Error("至少要選擇一位分帳對象");
+                            }
+
                             const coll = collection(tripDocRef, 'expenses');
-                            const data = { ...expenseForm.value };
+                            const data = { 
+                                title: expenseForm.value.title,
+                                amount: expenseForm.value.amount,
+                                payer: expenseForm.value.payer,
+                                splitMode: expenseForm.value.splitMode,
+                                involved: expenseForm.value.involved,
+                                customAmounts: expenseForm.value.customAmounts
+                            };
 
                             if (isEditing.value && currentEditId.value) {
                                 await updateDoc(doc(coll, currentEditId.value), data);
@@ -1136,14 +1257,59 @@
                     myTrips.forEach(t => { if (t.startDate && t.endDate) { totalDays += Math.ceil(Math.abs(new Date(t.endDate) - new Date(t.startDate)) / (1000 * 60 * 60 * 24)) + 1; } if (t.destination) places.add(t.destination); });
                     return { totalTrips: myTrips.length, totalDays, uniquePlaces: places.size };
                 });
+                
+                // 改寫 debts 邏輯
                 const debts = computed(() => {
-                    const usersList = currentTrip.value.companions || []; if (usersList.length < 2) return [];
-                    const balances = {}; usersList.forEach(u => balances[u] = 0);
-                    expenses.value.forEach(exp => { const amount = Number(exp.amount); if (usersList.includes(exp.payer)) { balances[exp.payer] += amount; usersList.forEach(u => balances[u] -= amount / usersList.length); } });
-                    let debtors = [], creditors = []; for (const [u, amount] of Object.entries(balances)) { if (amount < -1) debtors.push({ user: u, amount }); if (amount > 1) creditors.push({ user: u, amount }); }
-                    debtors.sort((a, b) => a.amount - b.amount); creditors.sort((a, b) => b.amount - a.amount);
-                    const result = []; let i = 0, j = 0;
-                    while (i < debtors.length && j < creditors.length) { let amount = Math.min(Math.abs(debtors[i].amount), creditors[j].amount); result.push({ from: debtors[i].user, to: creditors[j].user, amount: Math.round(amount) }); debtors[i].amount += amount; creditors[j].amount -= amount; if (Math.abs(debtors[i].amount) < 1) i++; if (creditors[j].amount < 1) j++; }
+                    const usersList = currentTrip.value.companions || []; 
+                    if (usersList.length < 2) return [];
+                    
+                    const balances = {}; 
+                    usersList.forEach(u => balances[u] = 0);
+
+                    expenses.value.forEach(exp => { 
+                        const amount = Number(exp.amount) || 0;
+                        const payer = exp.payer;
+                        
+                        if (!balances.hasOwnProperty(payer)) return;
+
+                        balances[payer] += amount;
+
+                        if (exp.splitMode === 'custom' && exp.customAmounts) {
+                            for (const [user, share] of Object.entries(exp.customAmounts)) {
+                                if (balances.hasOwnProperty(user)) {
+                                    balances[user] -= (Number(share) || 0);
+                                }
+                            }
+                        } else {
+                            const targets = (exp.involved && exp.involved.length > 0) ? exp.involved : usersList;
+                            const perPerson = amount / targets.length;
+                            
+                            targets.forEach(u => {
+                                if (balances.hasOwnProperty(u)) {
+                                    balances[u] -= perPerson;
+                                }
+                            });
+                        }
+                    });
+
+                    let debtors = [], creditors = []; 
+                    for (const [u, amount] of Object.entries(balances)) { 
+                        if (amount < -1) debtors.push({ user: u, amount }); 
+                        if (amount > 1) creditors.push({ user: u, amount }); 
+                    }
+                    debtors.sort((a, b) => a.amount - b.amount); 
+                    creditors.sort((a, b) => b.amount - a.amount);
+                    
+                    const result = []; 
+                    let i = 0, j = 0;
+                    while (i < debtors.length && j < creditors.length) { 
+                        let amount = Math.min(Math.abs(debtors[i].amount), creditors[j].amount); 
+                        result.push({ from: debtors[i].user, to: creditors[j].user, amount: Math.round(amount) }); 
+                        debtors[i].amount += amount; 
+                        creditors[j].amount -= amount; 
+                        if (Math.abs(debtors[i].amount) < 1) i++; 
+                        if (creditors[j].amount < 1) j++; 
+                    }
                     return result;
                 });
 
@@ -1160,8 +1326,8 @@
                     schedule, expenses, settings,
                     currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
                     budgetPercentage, remainingBudget, budgetColor, userStats,
-                     isEditing,
-                     submitting,
+                      isEditing,
+                      submitting,
                     loginWithGoogle, copyUid,
                     onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
                     openAddItemModal, editEvent, submitItem, deleteItem,
@@ -1170,7 +1336,10 @@
                     sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
                     activeProfileTab, handleFileUpload,
                     shareTrip,
-                    kickMember // 新增的 Return
+                    kickMember,
+                    customSplitSum, 
+                    remainingSplit, 
+                    toggleInvolved
                 };
             }
         }).mount('#app');
