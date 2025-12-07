@@ -63,19 +63,30 @@
         <template v-else-if="user && !loading">
             
             <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0">
-                <div class="flex items-center gap-2">
-                    <button v-if="currentView === 'planner'" @click="exitTrip" class="w-8 h-8 flex items-center justify-center -ml-2 text-gray-400 hover:text-gray-600">
+                <div class="flex items-center gap-2 overflow-hidden mr-2">
+                    <button v-if="currentView === 'planner'" @click="exitTrip" class="w-8 h-8 flex items-center justify-center -ml-2 text-gray-400 hover:text-gray-600 flex-shrink-0">
                         <i class="fas fa-chevron-left"></i>
                     </button>
-                    <div>
-                        <h1 class="text-lg font-bold text-gray-800 flex items-center">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <h1 class="text-lg font-bold text-gray-800 flex items-center whitespace-nowrap">
                             <span v-if="currentView === 'dashboard'">我的旅程 🧳</span>
-                            <span v-else>{{ currentTrip.destination || '未命名旅程' }}</span>
+                            <span v-else class="truncate">{{ currentTrip.destination || '未命名旅程' }}</span>
                         </h1>
-                    </div>
+
+                        <div v-if="currentView === 'planner' && currentTrip.accessMode === 'public'" class="flex -space-x-2 overflow-hidden py-1">
+                            <div v-for="viewer in activeViewers" :key="viewer.uid" 
+                                 class="relative inline-block group cursor-default" :title="viewer.name">
+                                <img :src="viewer.photo || 'https://ui-avatars.com/api/?name='+viewer.name" 
+                                     class="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm bg-gray-100">
+                            </div>
+                            <div v-if="activeViewersCount > 4" class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] text-gray-500 font-bold z-10">
+                                +{{ activeViewersCount - 4 }}
+                            </div>
+                        </div>
+                        </div>
                 </div>
                 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-shrink-0">
                     <button v-if="currentView === 'planner' && canEdit" @click="openTripSettings" class="w-10 h-10 rounded-full bg-gray-50 text-gray-500 hover:text-gray-800 hover:bg-gray-100 flex items-center justify-center transition">
                         <i class="fas fa-cog"></i>
                     </button>
@@ -749,6 +760,12 @@
                 const showAccessMenu = ref(false);
                 const showRoleMenu = ref(false);
 
+                // 線上使用者相關
+                const activeViewers = ref([]);
+                const activeViewersCount = computed(() => activeViewers.value.length);
+                let presenceInterval = null;
+                let unsubPresence = null;
+
                 let unsubTrips = null;
                 let unsubInvites = null;
                 let unsubTripMetadata = null; 
@@ -776,6 +793,13 @@
                         user.value = u;
                         loading.value = false;
                         if (u) { fetchGlobalData(); } else { trips.value = []; schedule.value = []; expenses.value = []; }
+                    });
+                    
+                    // 當分頁關閉時，移除線上狀態
+                    window.addEventListener('beforeunload', () => {
+                        if (currentTrip.value.id && currentTrip.value.accessMode === 'public') {
+                            stopPresence(currentTrip.value.id);
+                        }
                     });
                 });
 
@@ -831,6 +855,14 @@
                 const setAccessMode = async (mode) => {
                     currentTrip.value.accessMode = mode;
                     showAccessMenu.value = false;
+                    
+                    // 如果切換模式，處理 Presence
+                    if (mode === 'public') {
+                        if (!presenceInterval) startPresence(currentTrip.value.id);
+                    } else {
+                        stopPresence(currentTrip.value.id);
+                    }
+
                     if (currentTrip.value.id) {
                         try {
                             const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
@@ -1006,6 +1038,63 @@
                     showConfirmModal.value = true;
                 };
 
+                // === Presence Logic ===
+                const updateHeartbeat = async (tripId) => {
+                    if (!user.value || !tripId) return;
+                    const viewerRef = doc(db, 'artifacts', appId, 'trips', tripId, 'viewers', user.value.uid);
+                    try {
+                        await setDoc(viewerRef, {
+                            uid: user.value.uid,
+                            name: settings.value.displayName || user.value.displayName || '訪客',
+                            photo: settings.value.photoURL || user.value.photoURL || '',
+                            lastActive: Date.now()
+                        }, { merge: true });
+                    } catch (e) { console.error("Presence update failed", e); }
+                };
+
+                const startPresence = (tripId) => {
+                    // 更新一次
+                    updateHeartbeat(tripId);
+                    
+                    // 每 10 秒更新心跳
+                    if (presenceInterval) clearInterval(presenceInterval);
+                    presenceInterval = setInterval(() => updateHeartbeat(tripId), 10000);
+
+                    // 監聽
+                    if (unsubPresence) unsubPresence();
+                    const viewersRef = collection(db, 'artifacts', appId, 'trips', tripId, 'viewers');
+                    unsubPresence = onSnapshot(viewersRef, (snapshot) => {
+                        const now = Date.now();
+                        activeViewers.value = snapshot.docs
+                            .map(d => d.data())
+                            .filter(v => {
+                                // 過濾超過 30 秒沒反應的
+                                return (now - v.lastActive) < 30000;
+                            })
+                            // 這裡可以決定要不要過濾掉自己，目前保留自己讓測試更有感
+                            // .filter(v => v.uid !== user.value.uid);
+                    });
+                };
+
+                const stopPresence = async (tripId) => {
+                    if (presenceInterval) {
+                        clearInterval(presenceInterval);
+                        presenceInterval = null;
+                    }
+                    if (unsubPresence) {
+                        unsubPresence();
+                        unsubPresence = null;
+                    }
+                    activeViewers.value = [];
+                    
+                    if (user.value && tripId) {
+                        const viewerRef = doc(db, 'artifacts', appId, 'trips', tripId, 'viewers', user.value.uid);
+                        // 不 await 以免卡住 UI
+                        deleteDoc(viewerRef).catch(e => {}); 
+                    }
+                };
+                // === End Presence Logic ===
+
                 const enterTrip = (trip) => {
                     if (trip.isInvite) return;
                     currentTrip.value = trip;
@@ -1034,6 +1123,13 @@
                             return;
                         }
 
+                        // Handle Presence
+                        if (isPublic) {
+                            if (!presenceInterval) startPresence(trip.id);
+                        } else {
+                            stopPresence(trip.id);
+                        }
+
                         currentTrip.value = { id: trip.id, ...data };
                     }, (error) => {
                         console.error(error);
@@ -1046,6 +1142,11 @@
                 };
 
                 const exitTrip = () => {
+                    // Stop Presence
+                    if (currentTrip.value.id) {
+                        stopPresence(currentTrip.value.id);
+                    }
+
                     currentView.value = 'dashboard';
                     currentTrip.value = {};
                     schedule.value = []; expenses.value = [];
@@ -1441,13 +1542,17 @@
                     customSplitSum, 
                     remainingSplit, 
                     toggleInvolved,
-                    linkCopied, // Added to return
+                    linkCopied, 
                     showAccessMenu,
                     showRoleMenu,
                     setAccessMode,
                     setAccessRole,
-                    canEdit
+                    canEdit,
+                    activeViewers,
+                    activeViewersCount
                 };
             }
         }).mount('#app');
     </script>
+</body>
+</html>
