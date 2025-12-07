@@ -331,13 +331,51 @@
                             <p class="text-xs font-bold text-gray-500 mb-2">一般存取權</p>
                             
                             <div class="flex items-center gap-3 mb-4 p-1">
-                                <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                                    <i class="fas fa-lock"></i>
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+                                     :class="currentTrip.accessMode === 'public' ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'">
+                                    <i class="fas" :class="currentTrip.accessMode === 'public' ? 'fa-globe' : 'fa-lock'"></i>
                                 </div>
-                                <div class="flex-1">
-                                    <div class="relative group cursor-pointer w-fit">
-                                        <span class="font-bold text-sm text-gray-700 flex items-center gap-1">限制 <i class="fas fa-caret-down text-xs"></i></span>
-                                        <p class="text-xs text-gray-500">只有受邀的使用者可以開啟透過這項連結共用的檔案</p>
+                                <div class="flex-1 relative">
+                                    <div @click="showAccessMenu = !showAccessMenu" class="cursor-pointer group select-none">
+                                        <span class="font-bold text-sm text-gray-700 flex items-center gap-1 hover:text-gray-900">
+                                            {{ currentTrip.accessMode === 'public' ? '知道連結的任何人' : '限制' }}
+                                            <i class="fas fa-caret-down text-xs text-gray-400"></i>
+                                        </span>
+                                        <p class="text-xs text-gray-500">
+                                            {{ currentTrip.accessMode === 'public' ? '任何知道這個連結的網際網路使用者都能查看' : '只有受邀的使用者可以開啟透過這項連結共用的檔案' }}
+                                        </p>
+                                    </div>
+
+                                    <div v-if="showAccessMenu" class="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1" @click.stop>
+                                        <button @click="setAccessMode('restricted')" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 group">
+                                            <i class="fas fa-check text-xs w-4" :class="currentTrip.accessMode !== 'public' ? 'text-primary' : 'text-transparent'"></i>
+                                            <div>
+                                                <span class="text-sm font-bold text-gray-700 block">限制</span>
+                                            </div>
+                                        </button>
+                                        <button @click="setAccessMode('public')" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 group">
+                                            <i class="fas fa-check text-xs w-4" :class="currentTrip.accessMode === 'public' ? 'text-primary' : 'text-transparent'"></i>
+                                            <div>
+                                                <span class="text-sm font-bold text-gray-700 block">知道連結的任何人</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-if="currentTrip.accessMode === 'public'" class="relative">
+                                    <button @click="showRoleMenu = !showRoleMenu" class="text-sm font-bold text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                                        {{ currentTrip.accessRole === 'editor' ? '編輯者' : '檢視者' }}
+                                        <i class="fas fa-caret-down text-xs"></i>
+                                    </button>
+                                    <div v-if="showRoleMenu" class="absolute top-full right-0 mt-1 w-32 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1 overflow-hidden">
+                                        <button @click="setAccessRole('viewer')" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center justify-between group">
+                                            <span>檢視者</span>
+                                            <i v-if="currentTrip.accessRole !== 'editor'" class="fas fa-check text-xs text-primary"></i>
+                                        </button>
+                                        <button @click="setAccessRole('editor')" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center justify-between group">
+                                            <span>編輯者</span>
+                                            <i v-if="currentTrip.accessRole === 'editor'" class="fas fa-check text-xs text-primary"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -706,7 +744,11 @@
 
                 const showCompanionManager = ref(false);
                 const initialCheckDone = ref(false); 
-                const linkCopied = ref(false); // New state for copy feedback
+                const linkCopied = ref(false); 
+                
+                // New UI states for access dropdowns
+                const showAccessMenu = ref(false);
+                const showRoleMenu = ref(false);
 
                 let unsubTrips = null;
                 let unsubInvites = null;
@@ -765,11 +807,8 @@
                     const url = `${window.location.origin}${window.location.pathname}?tripId=${currentTrip.value.id}`;
                     try {
                         await navigator.clipboard.writeText(url);
-                        
-                        // Visual feedback on button
                         linkCopied.value = true;
                         setTimeout(() => { linkCopied.value = false; }, 3000);
-
                     } catch (err) {
                         showAlert("複製失敗，請手動複製網址");
                     }
@@ -778,7 +817,32 @@
                 const openShareModal = () => {
                     tripForm.value.pendingEmails = currentTrip.value.pendingEmails || [];
                     tripForm.value.companions = currentTrip.value.companions || [];
+                    // Ensure accessMode defaults exist if not in DB
+                    if (!currentTrip.value.accessMode) currentTrip.value.accessMode = 'restricted';
+                    if (!currentTrip.value.accessRole) currentTrip.value.accessRole = 'viewer';
                     showShareModal.value = true;
+                };
+                
+                const setAccessMode = async (mode) => {
+                    currentTrip.value.accessMode = mode;
+                    showAccessMenu.value = false;
+                    if (currentTrip.value.id) {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { accessMode: mode });
+                        } catch (e) { console.error(e); }
+                    }
+                };
+
+                const setAccessRole = async (role) => {
+                    currentTrip.value.accessRole = role;
+                    showRoleMenu.value = false;
+                    if (currentTrip.value.id) {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { accessRole: role });
+                        } catch (e) { console.error(e); }
+                    }
                 };
 
                 const handleDeepLink = () => {
@@ -875,6 +939,8 @@
                     if(!currentTrip.value.id) {
                          tripData.memberUids = [user.value.uid];
                          tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL}];
+                         tripData.accessMode = 'restricted';
+                         tripData.accessRole = 'viewer';
                     } else {
                          let existingMembers = currentTrip.value.memberUids || [];
                          if(!existingMembers.includes(user.value.uid)) existingMembers.push(user.value.uid);
@@ -1344,7 +1410,8 @@
                     customSplitSum, 
                     remainingSplit, 
                     toggleInvolved,
-                    linkCopied // Added to return
+                    linkCopied,
+                    showAccessMenu, showRoleMenu, setAccessMode, setAccessRole // Added
                 };
             }
         }).mount('#app');
