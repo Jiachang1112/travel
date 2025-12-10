@@ -317,7 +317,7 @@
                             <div class="space-y-4">
                                 <div v-for="(member, index) in (currentTrip.members || [])" :key="index" class="flex items-center justify-between group">
                                     <div class="flex items-center gap-3">
-                                        <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
+                                        <img :src="(member.uid === user.uid ? (settings.photoURL || user.photoURL) : member.photo) || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
                                         <div>
                                             <p class="text-sm font-bold text-gray-800">
                                                 {{ member.name || (member.uid === user.uid ? user.displayName : '成員') }}
@@ -683,7 +683,7 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label><input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
-                            </div>
+                                </div>
                             
                             <div class="flex gap-2">
                                 <button v-if="currentTrip.id" @click="deleteTrip" class="flex-1 py-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 font-bold text-sm flex items-center justify-center">
@@ -995,8 +995,13 @@
                     
                     if(!currentTrip.value.id) {
                          tripData.memberUids = [user.value.uid];
-                         // 修改：加入 email
-                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL, email: user.value.email}];
+                         // 修改：加入 email, 且使用 settings 中的 photoURL
+                         tripData.members = [{
+                             uid: user.value.uid, 
+                             name: user.value.displayName || '我', 
+                             photo: settings.value.photoURL || user.value.photoURL, 
+                             email: user.value.email
+                         }];
                          tripData.accessMode = 'restricted';
                          tripData.accessRole = 'viewer';
                     } else {
