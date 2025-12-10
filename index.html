@@ -69,9 +69,7 @@
                     </button>
                     <div class="flex items-center gap-3 overflow-hidden">
                         <h1 class="text-lg font-bold text-gray-800 flex items-center whitespace-nowrap">
-                            <span v-if="currentView === 'dashboard'">
-                                {{ dashboardTab === 'journal' ? '旅途日記 📔' : '我的旅程 🧳' }}
-                            </span>
+                            <span v-if="currentView === 'dashboard'">我的旅程 🧳</span>
                             <span v-else class="truncate">{{ currentTrip.destination || '未命名旅程' }}</span>
                         </h1>
 
@@ -120,7 +118,7 @@
                         <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
                     </div>
 
-                    <div v-for="trip in trips" :key="trip.id" @click="onDashboardTripClick(trip)" 
+                    <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
                          class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
                         
                         <div v-if="trip.isInvite" class="absolute inset-0 z-20 bg-indigo-600/95 flex flex-col items-center justify-center text-white" @click.stop>
@@ -130,10 +128,6 @@
                                 <button @click="respondToInvite(trip, false)" class="px-4 py-2 bg-white/20 rounded-full hover:bg-white/30 text-sm">拒絕</button>
                                 <button @click="respondToInvite(trip, true)" class="px-4 py-2 bg-white text-indigo-600 font-bold rounded-full hover:bg-gray-100 text-sm">加入</button>
                              </div>
-                        </div>
-
-                        <div v-if="dashboardTab === 'journal' && !trip.isInvite" class="absolute right-4 bottom-4 bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-xs font-bold z-10 shadow-sm border border-purple-200">
-                            <i class="fas fa-book-open mr-1.5"></i>閱讀日記
                         </div>
 
                         <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
@@ -152,7 +146,7 @@
                                     <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
                                 </p>
                             </div>
-                            <i v-if="dashboardTab !== 'journal'" class="fas fa-chevron-right text-gray-300 mt-2"></i>
+                            <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
                         </div>
                     </div>
                 </div>
@@ -287,17 +281,7 @@
 
             </main>
 
-            <button v-if="(currentView === 'dashboard' && dashboardTab === 'trips') || (currentView === 'planner' && canEdit)" @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
-
-            <nav v-if="currentView === 'dashboard'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
-                <button @click="dashboardTab = 'trips'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="dashboardTab === 'trips' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
-                    <i class="fas fa-suitcase-rolling text-xl mb-0.5 transform transition" :class="dashboardTab === 'trips' ? 'scale-110' : ''"></i><span class="text-[10px] font-bold tracking-wide">旅程</span>
-                </button>
-                <div class="w-px h-8 bg-gray-100"></div>
-                <button @click="dashboardTab = 'journal'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="dashboardTab === 'journal' ? 'text-purple-500' : 'text-gray-300 hover:text-gray-500'">
-                    <i class="fas fa-book-open text-xl mb-0.5 transform transition" :class="dashboardTab === 'journal' ? 'scale-110' : ''"></i><span class="text-[10px] font-bold tracking-wide">日記</span>
-                </button>
-            </nav>
+            <button v-if="currentView === 'dashboard' || canEdit" @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
 
             <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
                 <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
@@ -333,7 +317,7 @@
                             <div class="space-y-4">
                                 <div v-for="(member, index) in (currentTrip.members || [])" :key="index" class="flex items-center justify-between group">
                                     <div class="flex items-center gap-3">
-                                        <img :src="(member.uid === user.uid ? (settings.photoURL || user.photoURL) : member.photo) || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
+                                        <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
                                         <div>
                                             <p class="text-sm font-bold text-gray-800">
                                                 {{ member.name || (member.uid === user.uid ? user.displayName : '成員') }}
@@ -419,7 +403,7 @@
                             </div>
 
                             <div class="flex justify-between items-center pt-2">
-                                <button @click="shareTrip" 
+                                <button @click="shareTrip"
                                     :class="linkCopied ? 'border-green-200 text-green-600 bg-green-50' : 'border-gray-300 text-googleBlue hover:bg-blue-50'"
                                     class="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold transition">
                                     <i :class="linkCopied ? 'fas fa-check' : 'fas fa-link'"></i>
@@ -699,7 +683,11 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label><input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
+                                <div v-if="!currentTrip.id">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">您的暱稱</label>
+                                    <input v-model="tripForm.companions[0]" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary">
                                 </div>
+                            </div>
                             
                             <div class="flex gap-2">
                                 <button v-if="currentTrip.id" @click="deleteTrip" class="flex-1 py-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 font-bold text-sm flex items-center justify-center">
@@ -775,9 +763,6 @@
                     involved: [], 
                     customAmounts: {} 
                 });
-
-                // 新增：儀表板分頁狀態 ('trips' 或 'journal')
-                const dashboardTab = ref('trips');
 
                 const showCompanionManager = ref(false);
                 const initialCheckDone = ref(false); 
@@ -1014,13 +999,8 @@
                     
                     if(!currentTrip.value.id) {
                          tripData.memberUids = [user.value.uid];
-                         // 修改：加入 email, 且使用 settings 中的 photoURL
-                         tripData.members = [{
-                             uid: user.value.uid, 
-                             name: user.value.displayName || '我', 
-                             photo: settings.value.photoURL || user.value.photoURL, 
-                             email: user.value.email
-                         }];
+                         // 修改：加入 email
+                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL, email: user.value.email}];
                          tripData.accessMode = 'restricted';
                          tripData.accessRole = 'viewer';
                     } else {
@@ -1562,30 +1542,6 @@
                     return result;
                 });
 
-                // 新增：處理日記開啟
-                const openJournal = (target) => {
-                    let id = null;
-                    if (typeof target === 'string') id = target;
-                    else if (target && target.id) id = target.id;
-                    else if (currentTrip.value && currentTrip.value.id) id = currentTrip.value.id;
-
-                    if (id) {
-                        window.location.href = `journal.html?tripId=${id}`;
-                    } else {
-                        showAlert("請先選擇旅程");
-                    }
-                };
-
-                // 新增：處理 Dashboard 卡片點擊
-                const onDashboardTripClick = (trip) => {
-                    if (trip.isInvite) return; 
-                    if (dashboardTab.value === 'journal') {
-                        openJournal(trip.id);
-                    } else {
-                        enterTrip(trip);
-                    }
-                };
-
                 return {
                     user, loading, loginError,
                     currentView, trips, currentTrip,
@@ -1621,10 +1577,7 @@
                     canEdit,
                     activeViewers,
                     activeViewersCount,
-                    checkViewerStatus,
-                    openJournal,
-                    dashboardTab, // 新增
-                    onDashboardTripClick // 新增
+                    checkViewerStatus
                 };
             }
         }).mount('#app');
