@@ -683,10 +683,6 @@
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label><input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
                                 
-                                <div v-if="!currentTrip.id">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">您的暱稱</label>
-                                    <input v-model="tripForm.companions[0]" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary">
-                                </div>
                             </div>
                             
                             <div class="flex gap-2">
