@@ -109,50 +109,59 @@
                 </div>
             </header>
 
-            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50">
-                
-                <div v-if="currentView === 'dashboard'" class="space-y-4">
-                    <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
-                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
-                        <p>還沒有任何旅程</p>
-                        <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
-                    </div>
-
-                    <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
-                         class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
-                        
-                        <div v-if="trip.isInvite" class="absolute inset-0 z-20 bg-indigo-600/95 flex flex-col items-center justify-center text-white" @click.stop>
-                             <p class="font-bold text-lg mb-1">📬 收到旅程邀請</p>
-                             <p class="text-xs opacity-80 mb-4">{{ trip.destination }}</p>
-                             <div class="flex gap-4">
-                                <button @click="respondToInvite(trip, false)" class="px-4 py-2 bg-white/20 rounded-full hover:bg-white/30 text-sm">拒絕</button>
-                                <button @click="respondToInvite(trip, true)" class="px-4 py-2 bg-white text-indigo-600 font-bold rounded-full hover:bg-gray-100 text-sm">加入</button>
-                             </div>
+            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50 pb-24"> <div v-if="currentView === 'dashboard'" class="space-y-4">
+                    
+                    <div v-if="dashboardTab === 'trips'">
+                        <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
+                            <p>還沒有任何旅程</p>
+                            <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
                         </div>
 
-                        <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
-                        
-                        <div class="relative z-10 flex justify-between items-start">
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
-                                <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
-                                    <i class="far fa-calendar-alt mr-1.5"></i> 
-                                    {{ trip.startDate.replace(/-/g, '/') }} 
-                                    <span v-if="trip.endDate" class="mx-1">~</span> 
-                                    {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
-                                </p>
-                                <p class="text-xs text-gray-500 flex items-center gap-1">
-                                    <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
-                                    <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
-                                </p>
+                        <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
+                             class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group mb-4">
+                            
+                            <div v-if="trip.isInvite" class="absolute inset-0 z-20 bg-indigo-600/95 flex flex-col items-center justify-center text-white" @click.stop>
+                                 <p class="font-bold text-lg mb-1">📬 收到旅程邀請</p>
+                                 <p class="text-xs opacity-80 mb-4">{{ trip.destination }}</p>
+                                 <div class="flex gap-4">
+                                    <button @click="respondToInvite(trip, false)" class="px-4 py-2 bg-white/20 rounded-full hover:bg-white/30 text-sm">拒絕</button>
+                                    <button @click="respondToInvite(trip, true)" class="px-4 py-2 bg-white text-indigo-600 font-bold rounded-full hover:bg-gray-100 text-sm">加入</button>
+                                 </div>
                             </div>
-                            <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
+
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
+                            
+                            <div class="relative z-10 flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
+                                    <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
+                                        <i class="far fa-calendar-alt mr-1.5"></i> 
+                                        {{ trip.startDate.replace(/-/g, '/') }} 
+                                        <span v-if="trip.endDate" class="mx-1">~</span> 
+                                        {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 flex items-center gap-1">
+                                        <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
+                                        <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
+                                    </p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
+                            </div>
                         </div>
                     </div>
+
+                    <div v-else-if="dashboardTab === 'diary'">
+                        <div class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">📖</div>
+                            <p class="text-lg font-bold text-gray-600">旅途日記</p>
+                            <p class="text-xs mt-2">記錄你的美好回憶 (開發中)</p>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div v-else-if="currentView === 'planner'">
-                    
                     <div v-if="activeTab === 'schedule'">
                         <div class="flex space-x-2 overflow-x-auto no-scrollbar mb-6 p-2">
                             <button v-for="(day, index) in days" :key="index" @click="currentDayIndex = index"
@@ -197,8 +206,8 @@
                         </div>
                         <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
                             <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-    <i class="far fa-calendar-alt text-2xl text-gray-400"></i>
-</div>
+                                <i class="far fa-calendar-alt text-2xl text-gray-400"></i>
+                            </div>
                             <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
                         </div>
                     </div>
@@ -281,7 +290,17 @@
 
             </main>
 
-            <button v-if="currentView === 'dashboard' || canEdit" @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
+            <button v-if="(currentView === 'dashboard' && dashboardTab === 'trips') || (currentView === 'planner' && canEdit)" @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
+
+            <nav v-if="currentView === 'dashboard'" class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                <button @click="dashboardTab = 'trips'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="dashboardTab === 'trips' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
+                    <i class="fas fa-suitcase text-xl mb-0.5 transform transition" :class="dashboardTab === 'trips' ? 'scale-110' : ''"></i><span class="text-[10px] font-bold tracking-wide">首頁</span>
+                </button>
+                <div class="w-px h-8 bg-gray-100"></div>
+                <button @click="dashboardTab = 'diary'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="dashboardTab === 'diary' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
+                    <i class="fas fa-book-open text-xl mb-0.5 transform transition" :class="dashboardTab === 'diary' ? 'scale-110' : ''"></i><span class="text-[10px] font-bold tracking-wide">旅途日記</span>
+                </button>
+            </nav>
 
             <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
                 <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
@@ -721,6 +740,7 @@
                 const loading = ref(true);
                 const loginError = ref('');
                 const currentView = ref('dashboard');
+                const dashboardTab = ref('trips'); // 新增: 控制首頁分頁 (trips / diary)
                 const trips = ref([]);
                 const currentTrip = ref({});
                 const activeTab = ref('schedule');
@@ -1578,7 +1598,8 @@
                     canEdit,
                     activeViewers,
                     activeViewersCount,
-                    checkViewerStatus
+                    checkViewerStatus,
+                    dashboardTab // 新增
                 };
             }
         }).mount('#app');
