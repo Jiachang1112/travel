@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Travel Pro 🌍</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #F3F4F6; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+        .slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); }
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #6366f1; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#6366f1', secondary: '#ec4899', googleBlue: '#1a73e8' },
+                    padding: { 'safe': 'env(safe-area-inset-bottom)' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="text-gray-800 h-screen overflow-hidden flex flex-col">
+
+    <div id="app" class="h-full flex flex-col w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative">
+
+        <Transition name="fade">
+            <div v-if="loading" class="absolute inset-0 z-[100] bg-white flex items-center justify-center">
+                <div class="flex items-center gap-4 px-6 py-4 bg-white rounded-2xl">
+                    <div class="w-10 h-10 rounded-full border-[4px] border-t-indigo-500 border-r-pink-500 border-b-yellow-500 border-l-blue-400 animate-spin"></div>
+                    <span class="text-gray-600 font-bold tracking-widest text-lg">正在載入</span>
+                </div>
+            </div>
+        </Transition>
+
+        <div v-if="!user && !loading" class="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center">
+            <div class="w-24 h-24 bg-gradient-to-tr from-primary to-purple-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl transform rotate-3">
+                <i class="fas fa-globe-americas text-4xl text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Travel Pro 自由行</h1>
+            <p class="text-gray-500 mb-10">雲端同步你的行程與帳務</p>
+            
+            <button @click="loginWithGoogle" class="flex items-center justify-center w-full bg-white border border-gray-300 rounded-xl py-3.5 px-4 shadow-sm hover:bg-gray-50 transition active:scale-95">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6 mr-3" alt="Google">
+                <span class="font-medium text-gray-700">使用 Google 帳號登入</span>
+            </button>
+            <p v-if="loginError" class="text-red-500 text-sm mt-4">{{ loginError }}</p>
+        </div>
+
+        <template v-else-if="user && !loading">
+            
+            <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0">
+                <div class="flex items-center gap-2 overflow-hidden mr-2">
+                    <button v-if="currentView === 'planner'" @click="exitTrip" class="w-8 h-8 flex items-center justify-center -ml-2 text-gray-400 hover:text-gray-600 flex-shrink-0">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <h1 class="text-lg font-bold text-gray-800 flex items-center whitespace-nowrap">
+                            <span v-if="currentView === 'dashboard'">我的旅程 🧳</span>
+                            <span v-else class="truncate">{{ currentTrip.destination || '未命名旅程' }}</span>
+                        </h1>
+
+                        <div v-if="currentView === 'planner' && currentTrip.accessMode === 'public'" class="flex -space-x-2 overflow-hidden py-1">
+                            <div v-for="viewer in activeViewers" :key="viewer.uid" 
+                                 class="relative inline-block group" 
+                                 @click="checkViewerStatus(viewer)">
+                                <img :src="viewer.photo || 'https://ui-avatars.com/api/?name='+viewer.name" 
+                                     :class="viewer.isIdle ? 'opacity-50 grayscale cursor-help' : 'cursor-pointer'"
+                                     class="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm bg-gray-100 transition-all hover:scale-110 hover:z-20">
+                                
+                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                    {{ viewer.name }} <span v-if="viewer.isIdle" class="text-gray-400">(閒置)</span>
+                                </div>
+                            </div>
+                            <div v-if="activeViewersCount > 4" class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] text-gray-500 font-bold z-10">
+                                +{{ activeViewersCount - 4 }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <button v-if="currentView === 'planner' && canEdit" @click="openTripSettings" class="w-10 h-10 rounded-full bg-gray-50 text-gray-500 hover:text-gray-800 hover:bg-gray-100 flex items-center justify-center transition">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    
+                    <button v-if="currentView === 'planner' && canEdit" @click="openShareModal" class="ml-1 flex items-center gap-2 px-5 py-2 bg-[#c2e7ff] text-[#001d35] rounded-[24px] hover:bg-[#b3d7ef] transition font-medium text-sm shadow-sm active:scale-95">
+                        <i class="fas fa-lock text-xs"></i>
+                        <span>共用</span>
+                    </button>
+
+                    <button @click="showUserMenu = true" class="relative group focus:outline-none ml-2">
+                        <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
+                             class="w-9 h-9 rounded-full border border-gray-200 transition transform active:scale-95 object-cover">
+                    </button>
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50">
+                
+                <div v-if="currentView === 'dashboard'" class="space-y-4">
+                    <div v-if="trips.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
+                        <p>還沒有任何旅程</p>
+                        <p class="text-xs mt-2">點擊右下角「+」開始規劃</p>
+                    </div>
+
+                    <div v-for="trip in trips" :key="trip.id" @click="enterTrip(trip)" 
+                         class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition active:scale-[0.98] cursor-pointer relative overflow-hidden group">
+                        
+                        <div v-if="trip.isInvite" class="absolute inset-0 z-20 bg-indigo-600/95 flex flex-col items-center justify-center text-white" @click.stop>
+                             <p class="font-bold text-lg mb-1">📬 收到旅程邀請</p>
+                             <p class="text-xs opacity-80 mb-4">{{ trip.destination }}</p>
+                             <div class="flex gap-4">
+                                <button @click="respondToInvite(trip, false)" class="px-4 py-2 bg-white/20 rounded-full hover:bg-white/30 text-sm">拒絕</button>
+                                <button @click="respondToInvite(trip, true)" class="px-4 py-2 bg-white text-indigo-600 font-bold rounded-full hover:bg-gray-100 text-sm">加入</button>
+                             </div>
+                        </div>
+
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition group-hover:bg-primary/10"></div>
+                        
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-1">{{ trip.destination }}</h3>
+                                <p v-if="trip.startDate" class="text-xs text-gray-400 mb-2 flex items-center">
+                                    <i class="far fa-calendar-alt mr-1.5"></i> 
+                                    {{ trip.startDate.replace(/-/g, '/') }} 
+                                    <span v-if="trip.endDate" class="mx-1">~</span> 
+                                    {{ trip.endDate ? trip.endDate.replace(/-/g, '/') : '' }}
+                                </p>
+                                <p class="text-xs text-gray-500 flex items-center gap-1">
+                                    <span class="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{{ trip.currency }}</span>
+                                    <span v-if="trip.companions && trip.companions.length > 0">· {{ trip.companions.length }} 人同行</span>
+                                </p>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 mt-2"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentView === 'planner'">
+                    
+                    <div v-if="activeTab === 'schedule'">
+                        <div class="flex space-x-2 overflow-x-auto no-scrollbar mb-6 p-2">
+                            <button v-for="(day, index) in days" :key="index" @click="currentDayIndex = index"
+                                :class="currentDayIndex === index ? 'bg-primary text-white shadow-lg shadow-indigo-200 ring-2 ring-primary ring-offset-1' : 'bg-white text-gray-500 border border-gray-100'"
+                                class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap">
+                                Day {{ index + 1 }}
+                            </button>
+                            <button v-if="canEdit" @click="addDay" class="flex-shrink-0 w-10 flex items-center justify-center rounded-xl bg-gray-200 text-gray-500 hover:bg-gray-300">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+
+                        <div v-if="currentDayEvents.length > 0" class="space-y-4 pl-2 pb-20">
+                            <div v-for="event in sortedEvents" :key="event.id" class="relative pl-6 border-l-2 border-gray-200 last:border-transparent pb-4 group">
+                                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm z-10"></div>
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <span class="text-primary font-bold text-lg font-mono tracking-tight">{{ event.time }}</span>
+                                        <div class="flex space-x-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button v-if="canEdit" @click="editEvent(event)" class="text-gray-300 hover:text-blue-500"><i class="fas fa-pen"></i></button>
+                                            <button v-if="canEdit" @click="deleteItem('schedule', event.id)" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex justify-between items-start">
+                                        <h3 class="font-bold text-gray-800 text-lg mb-1">{{ event.title }}</h3>
+                                        <span v-if="event.amount" class="text-xs font-bold text-secondary bg-pink-50 px-2 py-1 rounded-lg">
+                                            {{ currentTrip.currency }}{{ Number(event.amount).toLocaleString() }}
+                                        </span>
+                                    </div>
+
+                                    <div v-if="event.location" class="flex items-center text-gray-500 text-sm mb-2 cursor-pointer" @click="openMap(event.location)">
+                                        <i class="fas fa-map-marker-alt mr-1.5 text-secondary"></i>
+                                        <span class="truncate border-b border-dashed border-gray-300 hover:text-gray-700">{{ event.location }}</span>
+                                    </div>
+                                    
+                                    <p v-if="event.note" class="text-gray-400 text-sm mt-2 pt-2 border-t border-gray-50 flex items-start">
+                                        <i class="fas fa-info-circle mr-1.5 mt-0.5 opacity-50"></i> <span>{{ event.note }}</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+    <i class="far fa-calendar-alt text-2xl text-gray-400"></i>
+</div>
+                            <p>Day {{ currentDayIndex + 1 }} 還是空的</p>
+                        </div>
+                    </div>
+
+                    <div v-else-if="activeTab === 'expense'" class="pb-20">
+                        <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl shadow-gray-200/50 mb-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+                            <p class="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">總支出</p>
+                            <h2 class="text-4xl font-bold font-mono tracking-tight flex items-baseline">
+                                <span class="text-xl mr-1">{{ currentTrip.currency || '$' }}</span>{{ totalExpense.toLocaleString() }}
+                            </h2>
+                            <div class="mt-6 flex justify-between items-end">
+                                <div>
+                                    <p class="text-gray-400 text-xs mb-1">平均每人</p>
+                                    <p class="font-mono text-lg">{{ currentTrip.currency || '$' }} {{ averageExpense.toLocaleString() }}</p>
+                                </div>
+                                <div class="flex -space-x-2">
+                                    <div v-for="(u, i) in (currentTrip.companions || [])" :key="i" class="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs font-bold text-gray-300">
+                                        {{ u.charAt(0) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="currentTrip.budget > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
+                            <div class="flex justify-between items-end mb-2">
+                                <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wide">預算狀態</h3>
+                                <button v-if="canEdit" @click="openTripSettings" class="text-xs text-primary font-bold hover:underline">調整</button>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                <span>已用 {{ Math.round(budgetPercentage) }}%</span>
+                                <span :class="remainingBudget < 0 ? 'text-red-500 font-bold' : ''">剩餘 {{ currentTrip.currency }}{{ remainingBudget.toLocaleString() }}</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                                <div class="h-2.5 rounded-full transition-all duration-500" :class="budgetColor" :style="{ width: Math.min(budgetPercentage, 100) + '%' }"></div>
+                            </div>
+                            <p class="text-xs text-gray-300 mt-2 text-right">總預算 {{ currentTrip.currency }}{{ Number(currentTrip.budget).toLocaleString() }}</p>
+                        </div>
+
+                        <div v-if="debts.length > 0" class="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-100">
+                            <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">結算方案</h3>
+                            <div class="space-y-3">
+                                <div v-for="(debt, idx) in debts" :key="idx" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center text-sm">
+                                        <span class="font-bold text-gray-700">{{ debt.from }}</span>
+                                        <i class="fas fa-long-arrow-alt-right mx-2 text-gray-400"></i>
+                                        <span class="font-bold text-gray-700">{{ debt.to }}</span>
+                                    </div>
+                                    <span class="font-mono font-bold text-secondary">{{ currentTrip.currency || '$' }}{{ debt.amount.toLocaleString() }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="sortedExpenses.length > 0" class="space-y-3">
+                            <div v-for="expense in sortedExpenses" :key="expense.id" @click="editExpense(expense)" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group cursor-pointer hover:bg-gray-50 transition">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm shrink-0">
+                                        {{ expense.payer ? expense.payer.charAt(0) : '?' }}
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-gray-800 leading-tight">{{ expense.title }}</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">
+                                            {{ formatDate(expense.date) }} · {{ expense.payer }}
+                                            <span v-if="expense.splitMode === 'custom'" class="ml-1 text-secondary bg-pink-50 px-1 rounded">自訂</span>
+                                            <span v-else-if="expense.involved && expense.involved.length < currentTrip.companions.length" class="ml-1 text-secondary bg-pink-50 px-1 rounded">部分</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold font-mono text-gray-800">{{ currentTrip.currency || '$' }}{{ parseInt(expense.amount).toLocaleString() }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">💸</div>
+                            <p>請點選右下角+ 添加您的第一筆支出吧！</p>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+
+            <button v-if="currentView === 'dashboard' || canEdit" @click="onFabClick" class="absolute bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-400/50 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40"><i class="fas fa-plus"></i></button>
+
+            <nav v-if="currentView === 'planner'" class="bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 pb-4 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                <button @click="activeTab = 'schedule'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'schedule' ? 'text-primary' : 'text-gray-300 hover:text-gray-500'">
+                    <i class="fas fa-map-marked-alt text-xl mb-0.5 transform transition" :class="activeTab === 'schedule' ? 'scale-110' : ''"></i><span class="text-[10px] font-bold tracking-wide">行程</span>
+                </button>
+                <div class="w-px h-8 bg-gray-100"></div>
+                <button @click="activeTab = 'expense'" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200" :class="activeTab === 'expense' ? 'text-secondary' : 'text-gray-300 hover:text-gray-500'">
+                    <i class="fas fa-wallet text-xl mb-0.5 transform transition" :class="activeTab === 'expense' ? 'scale-110' : ''"></i><span class="text-[10px] font-bold tracking-wide">分帳</span>
+                </button>
+            </nav>
+
+            <Transition name="fade">
+                <div v-if="showShareModal" class="absolute inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showShareModal = false">
+                    <div class="bg-white w-full max-w-md rounded-xl shadow-2xl mx-4 overflow-hidden flex flex-col max-h-[85vh]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 class="text-xl font-normal text-gray-800">共用「{{ currentTrip.destination || '旅程' }}」</h3>
+                            <div class="flex gap-2">
+                                <button @click="showShareModal = false" class="text-gray-500 hover:bg-gray-100 rounded-full p-2"><i class="fas fa-cog"></i></button>
+                                <button @click="showShareModal = false" class="text-gray-500 hover:bg-gray-100 rounded-full p-2"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="p-4">
+                            <div class="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-1 mb-2 focus-within:border-googleBlue focus-within:ring-2 focus-within:ring-blue-100 transition">
+                                <input v-model="inviteEmail" type="email" placeholder="新增使用者、群組" class="flex-1 bg-transparent p-2 outline-none text-sm text-gray-700">
+                                <button v-if="inviteEmail" @click="sendInvite" class="text-sm font-bold text-googleBlue px-3 py-1 hover:bg-blue-50 rounded">邀請</button>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto px-4 pb-2">
+                            <p class="text-xs font-bold text-gray-500 mb-3">具有存取權的使用者</p>
+                            
+                            <div class="space-y-4">
+                                <div v-for="(member, index) in (currentTrip.members || [])" :key="index" class="flex items-center justify-between group">
+                                    <div class="flex items-center gap-3">
+                                        <img :src="member.photo || 'https://ui-avatars.com/api/?name='+member.name" class="w-10 h-10 rounded-full object-cover border border-gray-100">
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-800">
+                                                {{ member.name || (member.uid === user.uid ? user.displayName : '成員') }}
+                                                <span v-if="member.uid === user.uid" class="text-gray-400 font-normal ml-1">(you)</span>
+                                            </p>
+                                            <p class="text-xs text-gray-500">
+                                                {{ member.email || (member.uid === user.uid ? user.email : '未提供 Email') }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs text-gray-400 font-medium px-2 py-1 hover:bg-gray-100 rounded cursor-default">{{ index === 0 ? '擁有者' : '編輯者' }}</span>
+                                        <button v-if="isOwner && index !== 0" @click="kickMember(member)" class="text-gray-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition" title="移除成員">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-for="email in (currentTrip.pendingEmails || [])" :key="email" class="flex items-center justify-between group opacity-70">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500"><i class="fas fa-envelope"></i></div>
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-800">{{ email }}</p>
+                                            <p class="text-xs text-gray-500">已邀請</p>
+                                        </div>
+                                    </div>
+                                    <button v-if="isOwner" @click="removePending(email)" class="text-gray-400 hover:text-red-500 p-2"><i class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+                            <p class="text-xs font-bold text-gray-500 mb-2">一般存取權</p>
+                            
+                            <div class="flex items-center gap-3 mb-4 p-1">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+                                     :class="currentTrip.accessMode === 'public' ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'">
+                                    <i class="fas" :class="currentTrip.accessMode === 'public' ? 'fa-globe' : 'fa-lock'"></i>
+                                </div>
+                                <div class="flex-1 relative">
+                                    <div @click="showAccessMenu = !showAccessMenu" class="cursor-pointer group select-none">
+                                        <span class="font-bold text-sm text-gray-700 flex items-center gap-1 hover:text-gray-900">
+                                            {{ currentTrip.accessMode === 'public' ? '知道連結的任何人' : '限制' }}
+                                            <i class="fas fa-caret-down text-xs text-gray-400"></i>
+                                        </span>
+                                        <p class="text-xs text-gray-500">
+                                            {{ currentTrip.accessMode === 'public' ? '任何知道這個連結的網際網路使用者都能查看' : '只有受邀的使用者可以開啟透過這項連結共用的檔案' }}
+                                        </p>
+                                    </div>
+
+                                    <div v-if="showAccessMenu" class="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1" @click.stop>
+                                        <button @click="setAccessMode('restricted')" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 group">
+                                            <i class="fas fa-check text-xs w-4" :class="currentTrip.accessMode !== 'public' ? 'text-primary' : 'text-transparent'"></i>
+                                            <div>
+                                                <span class="text-sm font-bold text-gray-700 block">限制</span>
+                                            </div>
+                                        </button>
+                                        <button @click="setAccessMode('public')" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 group">
+                                            <i class="fas fa-check text-xs w-4" :class="currentTrip.accessMode === 'public' ? 'text-primary' : 'text-transparent'"></i>
+                                            <div>
+                                                <span class="text-sm font-bold text-gray-700 block">知道連結的任何人</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-if="currentTrip.accessMode === 'public'" class="relative">
+                                    <button @click="showRoleMenu = !showRoleMenu" class="text-sm font-bold text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                                        {{ currentTrip.accessRole === 'editor' ? '編輯者' : '檢視者' }}
+                                        <i class="fas fa-caret-down text-xs"></i>
+                                    </button>
+                                    <div v-if="showRoleMenu" class="absolute top-full right-0 mt-1 w-32 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1 overflow-hidden">
+                                        <button @click="setAccessRole('viewer')" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center justify-between group">
+                                            <span>檢視者</span>
+                                            <i v-if="currentTrip.accessRole !== 'editor'" class="fas fa-check text-xs text-primary"></i>
+                                        </button>
+                                        <button @click="setAccessRole('editor')" class="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center justify-between group">
+                                            <span>編輯者</span>
+                                            <i v-if="currentTrip.accessRole === 'editor'" class="fas fa-check text-xs text-primary"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-2">
+                                <button @click="shareTrip"
+                                    :class="linkCopied ? 'border-green-200 text-green-600 bg-green-50' : 'border-gray-300 text-googleBlue hover:bg-blue-50'"
+                                    class="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold transition">
+                                    <i :class="linkCopied ? 'fas fa-check' : 'fas fa-link'"></i>
+                                    <span>{{ linkCopied ? '連結已複製' : '複製連結' }}</span>
+                                </button>
+                                <button @click="showShareModal = false" class="px-6 py-2 rounded-full bg-googleBlue text-white text-sm font-bold hover:bg-blue-700 shadow-sm transition">
+                                    完成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showDestinationModal" class="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDestinationModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl mx-5 overflow-hidden flex flex-col max-h-[70vh]">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 class="font-bold text-gray-800">選擇目的地</h3>
+                            <button @click="showDestinationModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex border-b border-gray-200">
+                            <button v-for="key in Object.keys(regions)" :key="key" @click="activeRegion = key" :class="activeRegion === key ? 'border-primary text-primary bg-indigo-50' : 'border-transparent text-gray-500 hover:bg-gray-50'" class="flex-1 py-3 text-sm font-bold border-b-2 transition">{{ key }}</button>
+                        </div>
+                        <div class="p-4 overflow-y-auto grid grid-cols-2 gap-3 bg-gray-50/50 flex-1">
+                            <button v-for="country in regions[activeRegion]" :key="country.name" @click="selectDestination(country)" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-primary hover:shadow-md transition text-left flex items-center justify-between group">
+                                <span class="font-medium text-gray-700 group-hover:text-primary">{{ country.name }}</span>
+                                <span class="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ country.currency }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showUserMenu" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showUserMenu = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                        <div class="flex justify-end mb-2">
+                            <button @click="showUserMenu = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex flex-col items-center mb-6">
+                            <img :src="settings.photoURL || user.photoURL || 'https://ui-avatars.com/api/?name=User'" class="w-20 h-20 rounded-full border-4 border-gray-50 shadow-md mb-3 object-cover">
+                            <h3 class="text-xl font-bold text-gray-800">{{ settings.displayName || user.displayName || '使用者' }}</h3>
+                            <p class="text-sm text-gray-400 font-mono">{{ user.email }}</p>
+                            <div @click="copyUid" class="mt-2 flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition group" title="點擊複製 UID">
+                                <span class="text-[10px] font-mono text-gray-500 break-all max-w-[200px] truncate">UID: {{ user.uid }}</span>
+                                <i class="fas fa-copy text-xs text-gray-400 group-hover:text-primary"></i>
+                            </div>
+                            <p v-if="copyToast" class="text-xs text-green-500 font-bold mt-1 transition-all">{{ copyToast }}</p>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <button @click="openEditProfile" class="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold flex items-center justify-center gap-2"><i class="fas fa-edit"></i> 編輯檔案</button>
+                            <button @click="confirmAction('logout')" class="w-full py-3 text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 font-bold flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> 登出帳號</button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showConfirmModal" class="absolute inset-0 z-[90] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showConfirmModal = false">
+                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation-triangle"></i></div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">確認操作</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</p>
+                        <div class="flex gap-3">
+                            <button @click="showConfirmModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button>
+                            <button @click="executeConfirm" class="flex-1 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-lg shadow-red-200">確定</button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showErrorModal" class="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showErrorModal = false">
+                    <div class="bg-white w-full max-w-[280px] rounded-2xl p-6 shadow-2xl mx-5 text-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl"><i class="fas fa-exclamation"></i></div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">提示</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ errorMessage }}</p>
+                        <button @click="showErrorModal = false" class="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 shadow-lg">確定</button>
+                    </div>
+                </div>
+            </Transition>
+            
+            <Transition name="fade">
+                <div v-if="showProfileModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showProfileModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-bold text-gray-800">編輯個人檔案</h3>
+                            <button @click="showProfileModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="flex flex-col items-center mb-6">
+                            <img :src="profileForm.photoURL || 'https://ui-avatars.com/api/?name=' + (profileForm.displayName || 'User')" class="w-24 h-24 rounded-full border-4 border-gray-50 shadow-md mb-4 object-cover bg-gray-100">
+                            
+                            <div class="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                                <button @click="activeProfileTab = 'upload'" :class="activeProfileTab === 'upload' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">📷 上傳圖片</button>
+                                <button @click="activeProfileTab = 'url'" :class="activeProfileTab === 'url' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'" class="px-4 py-1.5 text-xs font-bold rounded-md transition">🔗 圖片連結</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">姓名 / 暱稱</label>
+                                <input v-model="profileForm.displayName" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                            
+                            <div v-if="activeProfileTab === 'upload'">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">選擇照片</label>
+                                <input type="file" accept="image/*" @change="handleFileUpload" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100 cursor-pointer">
+                                <p class="text-[10px] text-gray-400 mt-1">* 圖片將自動壓縮以節省空間</p>
+                            </div>
+
+                            <div v-else>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">頭貼連結 (URL)</label>
+                                <input v-model="profileForm.photoURL" type="text" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <button @click="saveProfile" class="w-full py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-bold shadow-lg shadow-indigo-200">儲存變更</button>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="slide-up">
+                <div v-if="showItemModal" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" @click.self="showItemModal = false">
+                    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl h-[85vh] sm:h-auto flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-gray-800">{{ isEditing ? '編輯' : '新增' }} {{ activeTab === 'schedule' ? '行程' : '支出' }}</h3>
+                            <button @click="showItemModal = false" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto no-scrollbar space-y-5">
+                            
+                            <div v-if="activeTab === 'schedule'" class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">日期 / 天數</label>
+                                        <select v-model="form.dayIndex" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary appearance-none text-gray-900">
+                                            <option v-for="(day, index) in days" :key="index" :value="index">{{ day }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">時間</label>
+                                        <input v-model="form.time" type="time" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-lg font-mono text-gray-900">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">活動名稱</label>
+                                    <input v-model="form.title" type="text" placeholder="例如：逛夜市" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-gray-900">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預估金額 / 門票</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
+                                        <input v-model.number="form.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-8 outline-none focus:border-primary font-mono text-gray-900">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">地點</label>
+                                    <div class="relative">
+                                        <i class="fas fa-map-pin absolute left-4 top-4 text-gray-400"></i>
+                                        <input v-model="form.location" type="text" placeholder="輸入 Google Maps 關鍵字" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-10 outline-none focus:border-primary text-gray-900">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">備註</label>
+                                    <textarea v-model="form.note" rows="3" placeholder="票券資訊、注意事項..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary resize-none text-gray-900"></textarea>
+                                </div>
+                            </div>
+
+                            <div v-if="activeTab === 'expense'" class="space-y-5">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">總金額</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-3.5 text-gray-400 font-bold">{{ currentTrip.currency }}</span>
+                                        <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 pl-14 outline-none focus:border-secondary text-2xl font-mono font-bold text-gray-900">
+                                    </div>
+                                </div>
+                            
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">項目</label>
+                                    <input v-model="expenseForm.title" type="text" placeholder="例如：晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-secondary text-gray-900">
+                                </div>
+                            
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">先墊付的人 (付款人)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button v-for="u in currentTrip.companions" :key="u" @click="expenseForm.payer = u" :class="expenseForm.payer === u ? 'bg-secondary text-white shadow-md shadow-pink-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                                            {{ u }}
+                                        </button>
+                                    </div>
+                                </div>
+                            
+                                <div class="pt-2 border-t border-gray-100">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <label class="text-xs font-bold text-gray-500 uppercase">分帳方式</label>
+                                        <div class="flex bg-gray-100 p-1 rounded-lg">
+                                            <button @click="expenseForm.splitMode = 'even'" :class="expenseForm.splitMode === 'even' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'" class="px-3 py-1 text-xs font-bold rounded-md transition">平均分攤</button>
+                                            <button @click="expenseForm.splitMode = 'custom'" :class="expenseForm.splitMode === 'custom' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'" class="px-3 py-1 text-xs font-bold rounded-md transition">自訂金額</button>
+                                        </div>
+                                    </div>
+                            
+                                    <div v-if="expenseForm.splitMode === 'even'" class="space-y-2">
+                                        <p class="text-xs text-gray-400 mb-2">勾選參與分帳的人，系統將自動平分</p>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button v-for="u in currentTrip.companions" :key="u" 
+                                                @click="toggleInvolved(u)"
+                                                :class="expenseForm.involved.includes(u) ? 'border-secondary bg-pink-50 text-secondary' : 'border-gray-200 text-gray-400'"
+                                                class="flex items-center gap-2 p-2 rounded-lg border text-sm font-medium transition">
+                                                <i :class="expenseForm.involved.includes(u) ? 'fa-check-circle' : 'fa-circle'" class="fas"></i>
+                                                {{ u }}
+                                            </button>
+                                        </div>
+                                        <p class="text-right text-xs text-secondary font-mono mt-2" v-if="expenseForm.amount && expenseForm.involved.length > 0">
+                                            每人約 {{ (expenseForm.amount / expenseForm.involved.length).toFixed(1) }}
+                                        </p>
+                                    </div>
+                            
+                                    <div v-else class="space-y-3">
+                                         <p class="text-xs text-gray-400 mb-2">輸入每個人應付的金額</p>
+                                         <div v-for="u in currentTrip.companions" :key="u" class="flex items-center justify-between">
+                                             <span class="text-sm font-medium text-gray-700">{{ u }}</span>
+                                             <div class="relative w-32">
+                                                 <span class="absolute left-3 top-2 text-gray-400 text-xs">{{ currentTrip.currency }}</span>
+                                                 <input type="number" v-model.number="expenseForm.customAmounts[u]" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 pl-8 pr-2 text-right font-mono text-sm focus:border-secondary outline-none" placeholder="0">
+                                             </div>
+                                         </div>
+                                         
+                                         <div class="flex justify-between items-center pt-2 border-t border-gray-100 text-xs">
+                                             <span class="text-gray-500">已分配: {{ customSplitSum }}</span>
+                                             <span :class="remainingSplit === 0 ? 'text-green-500' : 'text-red-500'" class="font-bold">
+                                                 {{ remainingSplit === 0 ? '完美分配' : (remainingSplit > 0 ? `還有 ${remainingSplit} 未分配` : `超出了 ${Math.abs(remainingSplit)}`) }}
+                                             </span>
+                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="submitItem" class="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition flex items-center justify-center" :class="activeTab === 'schedule' ? 'bg-primary shadow-indigo-200 hover:bg-indigo-600' : 'bg-secondary shadow-pink-200 hover:bg-pink-600'">
+                            <span v-if="submitting" class="loader border-white border-t-transparent w-5 h-5 mr-2"></span>{{ isEditing ? '儲存變更' : '確認新增' }}
+                        </button>
+
+                        <button v-if="isEditing" @click="requestDeleteItem" class="w-full mt-3 py-3.5 bg-red-50 text-red-500 rounded-2xl font-bold text-lg hover:bg-red-100 transition flex items-center justify-center">
+                            <i class="fas fa-trash-alt mr-2"></i> 刪除此筆資料
+                        </button>
+                    </div>
+                </div>
+            </Transition>
+
+            <Transition name="fade">
+                <div v-if="showTripModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showTripModal = false">
+                    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5 max-h-[90vh] overflow-y-auto">
+                        
+                        <div v-if="!showCompanionManager">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-xl font-bold text-gray-800">{{ currentTrip.id ? '旅程設定' : '建立新旅程' }}</h3>
+                                <button @click="showTripModal = false" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="space-y-5 mb-6">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">目的地</label>
+                                    <div class="relative">
+                                        <input readonly @click="showDestinationModal = true" v-model="tripForm.destination" type="text" placeholder="點擊選擇" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary cursor-pointer pr-10">
+                                        <i class="fas fa-chevron-down absolute right-3 top-4 text-gray-400 text-xs pointer-events-none"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">旅遊日期</label>
+                                    <div class="flex items-center gap-2">
+                                        <input v-model="tripForm.startDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-sm">
+                                        <span class="text-gray-400 font-bold">-</span>
+                                        <input v-model="tripForm.endDate" type="date" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary text-sm">
+                                    </div>
+                                </div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">貨幣符號</label><input v-model="tripForm.currency" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">預算上限</label><input v-model.number="tripForm.budget" type="number" placeholder="0" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary"></div>
+                                
+                                <div v-if="!currentTrip.id">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5">您的暱稱</label>
+                                    <input v-model="tripForm.companions[0]" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none focus:border-primary">
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button v-if="currentTrip.id" @click="deleteTrip" class="flex-1 py-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 font-bold text-sm flex items-center justify-center">
+                                    <i class="fas fa-trash-alt mr-2"></i>刪除旅程
+                                </button>
+                                <button @click="saveTrip" class="flex-[2] py-3.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold shadow-lg text-lg">{{ currentTrip.id ? '儲存變更' : '建立旅程' }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+
+        </template>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc, writeBatch, where, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        const secretPart = "FBLe6QQAySZGw4qv3LB8Q"; 
+        const userConfig = { apiKey: "AIzaSyAl4peLsSkvm-" + secretPart, authDomain: "travel-fa395.firebaseapp.com", projectId: "travel-fa395", storageBucket: "travel-fa395.firebasestorage.app", messagingSenderId: "837385103808", appId: "1:837385103808:web:f998a17e4aeccf4b7f8025", measurementId: "G-31D354GWVR" };
+        const firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : userConfig;
+        const appId = (typeof __app_id !== 'undefined') ? __app_id : 'default-app';
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const { createApp, ref, computed, watch, onMounted } = window.Vue;
+
+        const regions = { '東': [{ name: '日本', currency: '¥' }, { name: '韓國', currency: '₩' }, { name: '台灣', currency: 'NT$' }, { name: '香港', currency: 'HK$' }, { name: '中國', currency: '¥' }], '南': [{ name: '泰國', currency: '฿' }, { name: '越南', currency: '₫' }, { name: '新加坡', currency: 'S$' }, { name: '馬來西亞', currency: 'RM' }, { name: '菲律賓', currency: '₱' }, { name: '澳洲', currency: 'A$' }], '西': [{ name: '美國', currency: '$' }, { name: '英國', currency: '£' }, { name: '歐盟', currency: '€' }, { name: '加拿大', currency: 'C$' }], '北': [{ name: '北海道', currency: '¥' }, { name: '俄羅斯', currency: '₽' }] };
+
+        createApp({
+            setup() {
+                const user = ref(null);
+                const loading = ref(true);
+                const loginError = ref('');
+                const currentView = ref('dashboard');
+                const trips = ref([]);
+                const currentTrip = ref({});
+                const activeTab = ref('schedule');
+                const days = ref([]);
+                const currentDayIndex = ref(0);
+                const showItemModal = ref(false);
+                const showTripModal = ref(false);
+                const showUserMenu = ref(false); 
+                const showProfileModal = ref(false);
+                const showDestinationModal = ref(false);
+                const showConfirmModal = ref(false);
+                const showErrorModal = ref(false);
+                const showShareModal = ref(false); 
+                const confirmMessage = ref('');
+                const pendingAction = ref(null);
+                const errorMessage = ref('');
+                const copyToast = ref('');
+                const inviteEmail = ref('');
+                const activeRegion = ref('東');
+                const isEditing = ref(false);
+                const submitting = ref(false);
+                const currentEditId = ref(null);
+                const schedule = ref([]);
+                const expenses = ref([]);
+                const settings = ref({});
+                const profileForm = ref({ displayName: '', photoURL: '' });
+                const activeProfileTab = ref('upload'); 
+                const tripForm = ref({ destination: '', currency: '', companions: [], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 });
+                const form = ref({ dayIndex: 0, time: '10:00', title: '', location: '', note: '', amount: '' });
+                
+                const expenseForm = ref({ 
+                    title: '', 
+                    amount: '', 
+                    payer: '', 
+                    splitMode: 'even', 
+                    involved: [], 
+                    customAmounts: {} 
+                });
+
+                const showCompanionManager = ref(false);
+                const initialCheckDone = ref(false); 
+                const linkCopied = ref(false); 
+                
+                const showAccessMenu = ref(false);
+                const showRoleMenu = ref(false);
+
+                // 線上使用者相關
+                const activeViewers = ref([]);
+                const activeViewersCount = computed(() => activeViewers.value.length);
+                let presenceInterval = null;
+                let unsubPresence = null;
+
+                let unsubTrips = null;
+                let unsubInvites = null;
+                let unsubTripMetadata = null; 
+                let unsubSchedule = null;
+                let unsubExpenses = null;
+                let unsubSettings = null;
+
+                const isOwner = computed(() => {
+                    if (!currentTrip.value || !currentTrip.value.memberUids || currentTrip.value.memberUids.length === 0) return true; 
+                    return currentTrip.value.memberUids[0] === user.value.uid; 
+                });
+
+                const canEdit = computed(() => {
+                    if (!user.value || !currentTrip.value) return false;
+                    if (currentTrip.value.memberUids && currentTrip.value.memberUids.includes(user.value.uid)) return true;
+                    if (currentTrip.value.accessMode === 'public' && currentTrip.value.accessRole === 'editor') return true;
+                    return false;
+                });
+
+                const initAuth = async () => { if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { await signInAnonymously(auth); } } };
+
+                onMounted(() => {
+                    initAuth();
+                    onAuthStateChanged(auth, (u) => {
+                        user.value = u;
+                        loading.value = false;
+                        if (u) { fetchGlobalData(); } else { trips.value = []; schedule.value = []; expenses.value = []; }
+                    });
+                    
+                    // 當分頁關閉時，移除線上狀態
+                    window.addEventListener('beforeunload', () => {
+                        if (currentTrip.value.id && currentTrip.value.accessMode === 'public') {
+                            stopPresence(currentTrip.value.id);
+                        }
+                    });
+                });
+
+                const showAlert = (msg) => { errorMessage.value = msg; showErrorModal.value = true; };
+                const confirmAction = (actionType, payload) => {
+                    if (actionType === 'logout') { 
+                        confirmMessage.value = '您確定要登出目前的帳號嗎？'; 
+                        pendingAction.value = async () => { await signOut(auth); showUserMenu.value = false; }; 
+                    } 
+                    else if (actionType === 'reduce_days') { 
+                        confirmMessage.value = '縮短行程將會刪除超出天數的行程資料，確定要繼續嗎？'; 
+                        pendingAction.value = payload; 
+                    }
+                    else if (actionType === 'delete_item_modal') {
+                        confirmMessage.value = '確定要刪除這筆資料嗎？此操作無法復原。';
+                        pendingAction.value = async () => {
+                            const type = activeTab.value === 'schedule' ? 'schedule' : 'expenses';
+                            const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            try { 
+                                await deleteDoc(doc(tripDocRef, type, currentEditId.value)); 
+                                showItemModal.value = false;
+                            } catch (e) { 
+                                showAlert("刪除失敗"); 
+                            }
+                        };
+                    }
+                    showConfirmModal.value = true;
+                };
+                const executeConfirm = async () => { if (pendingAction.value) { await pendingAction.value(); pendingAction.value = null; } showConfirmModal.value = false; };
+                const loginWithGoogle = async () => { try { loginError.value = ''; if (typeof __initial_auth_token !== 'undefined') { await signInAnonymously(auth); } else { const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); } } catch (error) { showAlert("登入失敗: " + error.message); } };
+                const copyUid = async () => { if (user.value && user.value.uid) { try { await navigator.clipboard.writeText(user.value.uid); copyToast.value = '已複製!'; setTimeout(() => copyToast.value = '', 2000); } catch (err) { console.error('Failed to copy!', err); } } };
+
+                const shareTrip = async () => {
+                    if (!currentTrip.value.id) return;
+                    const url = `${window.location.origin}${window.location.pathname}?tripId=${currentTrip.value.id}`;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        linkCopied.value = true;
+                        setTimeout(() => { linkCopied.value = false; }, 3000);
+                    } catch (err) {
+                        showAlert("複製失敗，請手動複製網址");
+                    }
+                };
+
+                const openShareModal = () => {
+                    tripForm.value.pendingEmails = currentTrip.value.pendingEmails || [];
+                    tripForm.value.companions = currentTrip.value.companions || [];
+                    if (!currentTrip.value.accessMode) currentTrip.value.accessMode = 'restricted';
+                    if (!currentTrip.value.accessRole) currentTrip.value.accessRole = 'viewer';
+                    showShareModal.value = true;
+                };
+                
+                const setAccessMode = async (mode) => {
+                    currentTrip.value.accessMode = mode;
+                    showAccessMenu.value = false;
+                    
+                    // 如果切換模式，處理 Presence
+                    if (mode === 'public') {
+                        if (!presenceInterval) startPresence(currentTrip.value.id);
+                    } else {
+                        stopPresence(currentTrip.value.id);
+                    }
+
+                    if (currentTrip.value.id) {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { accessMode: mode });
+                        } catch (e) { console.error(e); }
+                    }
+                };
+
+                const setAccessRole = async (role) => {
+                    currentTrip.value.accessRole = role;
+                    showRoleMenu.value = false;
+                    if (currentTrip.value.id) {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { accessRole: role });
+                        } catch (e) { console.error(e); }
+                    }
+                };
+
+                const handleDeepLink = () => {
+                    const params = new URLSearchParams(window.location.search);
+                    const targetTripId = params.get('tripId');
+
+                    if (!targetTripId || initialCheckDone.value) return;
+
+                    const targetTrip = trips.value.find(t => t.id === targetTripId);
+
+                    if (targetTrip) {
+                        if(targetTrip.isInvite) {
+                             showAlert("您收到此旅程的邀請，請先在列表中點擊「加入」");
+                        } else {
+                            enterTrip(targetTrip);
+                        }
+                        initialCheckDone.value = true;
+                    } else {
+                        const tripRef = doc(db, 'artifacts', appId, 'trips', targetTripId);
+                        getDoc(tripRef).then(snap => {
+                            if(snap.exists()) {
+                                const data = snap.data();
+                                if(data.accessMode === 'public' || (data.memberUids && data.memberUids.includes(user.value.uid))) {
+                                    enterTrip({id: snap.id, ...data});
+                                    initialCheckDone.value = true;
+                                }
+                            }
+                        });
+                    }
+                };
+
+                const fetchGlobalData = () => {
+                    const settingsRef = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                    unsubSettings = onSnapshot(settingsRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            settings.value = docSnap.data();
+                            if (!user.value.displayName && settings.value.displayName) user.value.displayName = settings.value.displayName;
+                            if (!user.value.photoURL && settings.value.photoURL) user.value.photoURL = settings.value.photoURL;
+                            
+                            if (!settings.value.email && user.value.email) {
+                                setDoc(settingsRef, { email: user.value.email }, { merge: true });
+                            }
+                        } else {
+                            const newSettings = { email: user.value.email };
+                            setDoc(settingsRef, newSettings);
+                            settings.value = newSettings;
+                        }
+                    });
+
+                    const tripsRef = collection(db, 'artifacts', appId, 'trips');
+                    const q = query(tripsRef, where('memberUids', 'array-contains', user.value.uid));
+                    unsubTrips = onSnapshot(q, (snapshot) => {
+                        const myTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        mergeTrips(myTrips, 'owned');
+                        handleDeepLink(); 
+                    });
+                    
+                    if(user.value.email) {
+                        const qInvite = query(tripsRef, where('pendingEmails', 'array-contains', user.value.email));
+                        unsubInvites = onSnapshot(qInvite, (snapshot) => {
+                            const invitedTrips = snapshot.docs.map(d => ({ id: d.id, ...d.data(), isInvite: true }));
+                            mergeTrips(invitedTrips, 'invited');
+                            handleDeepLink(); 
+                        });
+                    }
+                };
+
+                let tripsCache = { owned: [], invited: [] };
+                const mergeTrips = (data, type) => {
+                    tripsCache[type] = data;
+                    trips.value = [...tripsCache.owned, ...tripsCache.invited].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                };
+
+                const onFabClick = () => {
+                    if (currentView.value === 'dashboard') {
+                        tripForm.value = { destination: '', currency: '¥', companions: [user.value.displayName || '我'], members: [], pendingEmails: [], startDate: '', endDate: '', budget: 0 };
+                        currentTrip.value = {}; 
+                        showTripModal.value = true;
+                        showCompanionManager.value = false;
+                    } else { 
+                        if(canEdit.value) openAddItemModal(); 
+                    }
+                };
+
+                const calculateDays = (start, end) => {
+                    if (!start || !end) return [];
+                    const s = new Date(start); const e = new Date(end);
+                    return Array.from({length: Math.ceil(Math.abs(e - s) / (1000 * 60 * 60 * 24)) + 1}, (_, i) => `Day ${i + 1}`);
+                };
+
+                const saveTrip = async () => {
+                    if (!tripForm.value.destination) return showAlert('請輸入目的地');
+                    if (!tripForm.value.startDate || !tripForm.value.endDate) return showAlert('請選擇旅遊日期');
+                    const newDays = calculateDays(tripForm.value.startDate, tripForm.value.endDate);
+                    
+                    const tripData = {
+                        destination: tripForm.value.destination,
+                        currency: tripForm.value.currency,
+                        companions: tripForm.value.companions || ['我'],
+                        pendingEmails: tripForm.value.pendingEmails || [],
+                        startDate: tripForm.value.startDate,
+                        endDate: tripForm.value.endDate,
+                        budget: tripForm.value.budget || 0,
+                        updatedAt: new Date().toISOString()
+                    };
+                    
+                    if(!currentTrip.value.id) {
+                         tripData.memberUids = [user.value.uid];
+                         // 修改：加入 email
+                         tripData.members = [{uid: user.value.uid, name: user.value.displayName || '我', photo: user.value.photoURL, email: user.value.email}];
+                         tripData.accessMode = 'restricted';
+                         tripData.accessRole = 'viewer';
+                    } else {
+                         let existingMembers = currentTrip.value.memberUids || [];
+                         if(!existingMembers.includes(user.value.uid)) existingMembers.push(user.value.uid);
+                         tripData.memberUids = existingMembers;
+                    }
+
+                    const performSave = async () => {
+                        try {
+                            const tripsRef = collection(db, 'artifacts', appId, 'trips');
+                            if (currentTrip.value.id) {
+                                if (newDays.length < days.value.length) {
+                                    const eventsToDelete = schedule.value.filter(e => e.dayIndex >= newDays.length);
+                                    if (eventsToDelete.length > 0) {
+                                        const batch = writeBatch(db);
+                                        const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                                        eventsToDelete.forEach(ev => batch.delete(doc(tripDocRef, 'schedule', ev.id)));
+                                        await batch.commit();
+                                    }
+                                }
+                                await updateDoc(doc(tripsRef, currentTrip.value.id), tripData);
+                                days.value = newDays;
+                            } else { await addDoc(tripsRef, tripData); }
+                            showTripModal.value = false;
+                        } catch (e) { showAlert("儲存失敗: " + e.message); }
+                    };
+
+                    if (currentTrip.value.id && newDays.length < days.value.length && schedule.value.some(e => e.dayIndex >= newDays.length)) {
+                        confirmAction('reduce_days', performSave);
+                    } else { performSave(); }
+                };
+
+                const deleteTrip = async () => {
+                    const doDelete = async () => {
+                        try {
+                            await deleteDoc(doc(db, 'artifacts', appId, 'trips', currentTrip.value.id));
+                            showTripModal.value = false;
+                            showConfirmModal.value = false;
+                            trips.value = trips.value.filter(t => t.id !== currentTrip.value.id);
+                        } catch (e) {
+                            showAlert("刪除失敗: " + e.message);
+                        }
+                    };
+                    confirmMessage.value = "確定要刪除整個旅程嗎？所有資料將無法復原。";
+                    pendingAction.value = doDelete;
+                    showConfirmModal.value = true;
+                };
+
+                // === Presence Logic ===
+                const updateHeartbeat = async (tripId) => {
+                    if (!user.value || !tripId) return;
+                    const viewerRef = doc(db, 'artifacts', appId, 'trips', tripId, 'viewers', user.value.uid);
+                    try {
+                        await setDoc(viewerRef, {
+                            uid: user.value.uid,
+                            name: settings.value.displayName || user.value.displayName || '訪客',
+                            photo: settings.value.photoURL || user.value.photoURL || '',
+                            lastActive: Date.now()
+                        }, { merge: true });
+                    } catch (e) { console.error("Presence update failed", e); }
+                };
+
+                const startPresence = (tripId) => {
+                    // 更新一次
+                    updateHeartbeat(tripId);
+                    
+                    // 每 10 秒更新心跳
+                    if (presenceInterval) clearInterval(presenceInterval);
+                    presenceInterval = setInterval(() => updateHeartbeat(tripId), 10000);
+
+                    // 監聽
+                    if (unsubPresence) unsubPresence();
+                    const viewersRef = collection(db, 'artifacts', appId, 'trips', tripId, 'viewers');
+                    unsubPresence = onSnapshot(viewersRef, (snapshot) => {
+                        const now = Date.now();
+                        activeViewers.value = snapshot.docs
+                            .map(d => {
+                                const data = d.data();
+                                // 計算是否閒置 (超過 30 秒)
+                                const isIdle = (now - data.lastActive) > 30000;
+                                return { ...data, isIdle };
+                            })
+                            // 只過濾掉太久沒上線的 (例如超過 1 小時) 以免資料堆積
+                            .filter(v => (now - v.lastActive) < 3600000);
+                    });
+                };
+
+                const stopPresence = async (tripId) => {
+                    if (presenceInterval) {
+                        clearInterval(presenceInterval);
+                        presenceInterval = null;
+                    }
+                    if (unsubPresence) {
+                        unsubPresence();
+                        unsubPresence = null;
+                    }
+                    activeViewers.value = [];
+                    
+                    if (user.value && tripId) {
+                        const viewerRef = doc(db, 'artifacts', appId, 'trips', tripId, 'viewers', user.value.uid);
+                        // 不 await 以免卡住 UI
+                        deleteDoc(viewerRef).catch(e => {}); 
+                    }
+                };
+
+                const checkViewerStatus = (viewer) => {
+                    if (viewer.isIdle) {
+                        // 計算閒置多久 (分鐘)
+                        const minutes = Math.floor((Date.now() - viewer.lastActive) / 60000);
+                        let timeStr = "不到 1 分鐘";
+                        if (minutes > 0) timeStr = `約 ${minutes} 分鐘`;
+                        
+                        showAlert(`${viewer.name} 目前處於閒置狀態 (${timeStr}未活動)`);
+                    } else {
+                        showAlert(`${viewer.name} 目前在線上`);
+                    }
+                };
+                // === End Presence Logic ===
+
+                const enterTrip = (trip) => {
+                    if (trip.isInvite) return;
+                    currentTrip.value = trip;
+                    currentView.value = 'planner';
+                    activeTab.value = 'schedule';
+                    days.value = calculateDays(trip.startDate, trip.endDate);
+                    if (days.value.length === 0) days.value = ['Day 1'];
+
+                    const tripDocRef = doc(db, 'artifacts', appId, 'trips', trip.id);
+                    
+                    unsubTripMetadata = onSnapshot(tripDocRef, (docSnap) => {
+                        if (!docSnap.exists()) {
+                            showAlert("此旅程已被刪除");
+                            exitTrip();
+                            return;
+                        }
+                        const data = docSnap.data();
+                        
+                        // Check Permissions
+                        const isMember = data.memberUids && data.memberUids.includes(user.value.uid);
+                        const isPublic = data.accessMode === 'public';
+
+                        if (!isMember && !isPublic) {
+                            showAlert("您沒有權限存取此旅程"); 
+                            exitTrip(); 
+                            return;
+                        }
+
+                        // Handle Presence
+                        if (isPublic) {
+                            if (!presenceInterval) startPresence(trip.id);
+                        } else {
+                            stopPresence(trip.id);
+                        }
+
+                        currentTrip.value = { id: trip.id, ...data };
+                    }, (error) => {
+                        console.error(error);
+                        showAlert("無法讀取資料 (權限不足)");
+                        exitTrip();
+                    });
+
+                    unsubSchedule = onSnapshot(collection(tripDocRef, 'schedule'), (s) => schedule.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
+                    unsubExpenses = onSnapshot(collection(tripDocRef, 'expenses'), (s) => expenses.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
+                };
+
+                const exitTrip = () => {
+                    // Stop Presence
+                    if (currentTrip.value.id) {
+                        stopPresence(currentTrip.value.id);
+                    }
+
+                    currentView.value = 'dashboard';
+                    currentTrip.value = {};
+                    schedule.value = []; expenses.value = [];
+                    if (unsubSchedule) unsubSchedule();
+                    if (unsubExpenses) unsubExpenses();
+                    if (unsubTripMetadata) unsubTripMetadata();
+                };
+
+                const openTripSettings = () => {
+                    tripForm.value = {
+                        destination: currentTrip.value.destination,
+                        currency: currentTrip.value.currency,
+                        companions: currentTrip.value.companions || [],
+                        members: currentTrip.value.members || [], 
+                        pendingEmails: currentTrip.value.pendingEmails || [],
+                        startDate: currentTrip.value.startDate || '',
+                        endDate: currentTrip.value.endDate || '',
+                        budget: currentTrip.value.budget || 0
+                    };
+                    showTripModal.value = true;
+                    showCompanionManager.value = false;
+                };
+
+                const getMemberPhoto = (name) => {
+                    const mem = (tripForm.value.members || []).find(m => m.name === name);
+                    return mem ? mem.photo : null;
+                };
+
+                const openEditProfile = () => { 
+                    profileForm.value = { 
+                        displayName: settings.value.displayName || user.value.displayName || '', 
+                        photoURL: settings.value.photoURL || user.value.photoURL || '' 
+                    }; 
+                    activeProfileTab.value = 'upload'; 
+                    showUserMenu.value = false; 
+                    showProfileModal.value = true; 
+                };
+
+                const handleFileUpload = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    if (file.size > 10 * 1024 * 1024) {
+                        showAlert("圖片檔案過大，請選擇小於 10MB 的圖片");
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const maxWidth = 300;
+                            const scale = maxWidth / img.width;
+                            const width = maxWidth;
+                            const height = img.height * scale;
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                            profileForm.value.photoURL = dataUrl;
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                };
+
+                const saveProfile = async () => {
+                    if (!user.value) return;
+                    try {
+                        const isBase64 = profileForm.value.photoURL && profileForm.value.photoURL.startsWith('data:');
+                        const authUpdate = { displayName: profileForm.value.displayName };
+                        if (!isBase64) {
+                            authUpdate.photoURL = profileForm.value.photoURL;
+                        }
+                        await updateProfile(user.value, authUpdate);
+                        const ref = doc(db, 'artifacts', appId, 'users', user.value.uid, 'settings', 'config');
+                        await setDoc(ref, {
+                            displayName: profileForm.value.displayName,
+                            photoURL: profileForm.value.photoURL, 
+                            email: user.value.email
+                        }, { merge: true });
+                        showProfileModal.value = false;
+                    } catch (e) {
+                        console.error(e);
+                        showAlert("更新失敗: " + e.message);
+                    }
+                };
+                
+                const customSplitSum = computed(() => {
+                    if (!expenseForm.value.customAmounts) return 0;
+                    return Object.values(expenseForm.value.customAmounts).reduce((a, b) => a + (Number(b) || 0), 0);
+                });
+
+                const remainingSplit = computed(() => {
+                    return (Number(expenseForm.value.amount) || 0) - customSplitSum.value;
+                });
+
+                const toggleInvolved = (name) => {
+                    const idx = expenseForm.value.involved.indexOf(name);
+                    if (idx === -1) expenseForm.value.involved.push(name);
+                    else expenseForm.value.involved.splice(idx, 1);
+                };
+
+                const openAddItemModal = () => { 
+                    isEditing.value = false; 
+                    currentEditId.value = null; 
+                    
+                    form.value = { dayIndex: currentDayIndex.value, time: '09:00', title: '', location: '', note: '', amount: '' }; 
+                    
+                    const allCompanions = currentTrip.value.companions || [];
+                    expenseForm.value = { 
+                        title: '', 
+                        amount: '', 
+                        payer: currentTrip.value.companions[0] || '',
+                        splitMode: 'even',
+                        involved: [...allCompanions], 
+                        customAmounts: {}
+                    };
+                    allCompanions.forEach(c => expenseForm.value.customAmounts[c] = 0);
+
+                    showItemModal.value = true; 
+                };
+                
+                const editExpense = (expense) => {
+                    if(!canEdit.value) return;
+                    isEditing.value = true;
+                    currentEditId.value = expense.id;
+                    
+                    const allCompanions = currentTrip.value.companions || [];
+                    const splitMode = expense.splitMode || 'even';
+                    const involved = expense.involved || [...allCompanions];
+                    const customAmounts = expense.customAmounts || {};
+                    
+                    allCompanions.forEach(c => {
+                        if (customAmounts[c] === undefined) customAmounts[c] = 0;
+                    });
+
+                    expenseForm.value = { 
+                        ...expense,
+                        splitMode,
+                        involved,
+                        customAmounts
+                    };
+                    showItemModal.value = true;
+                };
+
+                const editEvent = (event) => { 
+                    if(!canEdit.value) return;
+                    isEditing.value = true; 
+                    currentEditId.value = event.id; 
+                    form.value = { ...event }; 
+                    showItemModal.value = true; 
+                };
+
+                const submitItem = async () => {
+                    submitting.value = true;
+                    const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                    try {
+                        if (activeTab.value === 'schedule') {
+                            if (!form.value.title) throw new Error("請輸入標題");
+                            const coll = collection(tripDocRef, 'schedule');
+                            const data = { 
+                                ...form.value, 
+                                dayIndex: Number(form.value.dayIndex),
+                                updatedAt: new Date().toISOString() 
+                            };
+                            if (isEditing.value && currentEditId.value) await updateDoc(doc(coll, currentEditId.value), data); 
+                            else await addDoc(coll, data);
+                        } else {
+                            if (!expenseForm.value.title || !expenseForm.value.amount) throw new Error("資料不完整");
+                            
+                            if (expenseForm.value.splitMode === 'custom') {
+                                if (Math.abs(remainingSplit.value) > 1) { 
+                                    throw new Error("自訂分帳總和與總金額不符");
+                                }
+                            } else {
+                                if (expenseForm.value.involved.length === 0) throw new Error("至少要選擇一位分帳對象");
+                            }
+
+                            const coll = collection(tripDocRef, 'expenses');
+                            const data = { 
+                                title: expenseForm.value.title,
+                                amount: expenseForm.value.amount,
+                                payer: expenseForm.value.payer,
+                                splitMode: expenseForm.value.splitMode,
+                                involved: expenseForm.value.involved,
+                                customAmounts: expenseForm.value.customAmounts
+                            };
+
+                            if (isEditing.value && currentEditId.value) {
+                                await updateDoc(doc(coll, currentEditId.value), data);
+                            } else {
+                                data.date = new Date().toISOString();
+                                await addDoc(coll, data);
+                            }
+                        }
+                        showItemModal.value = false;
+                    } catch (e) { showAlert(e.message); } finally { submitting.value = false; }
+                };
+
+                const requestDeleteItem = () => {
+                    confirmAction('delete_item_modal');
+                };
+
+                const deleteItem = async (type, id) => {
+                    if(!canEdit.value) return;
+                    if (!showItemModal.value) {
+                        if (!confirm('確定刪除？')) return;
+                    }
+                    const tripDocRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                    try { await deleteDoc(doc(tripDocRef, type === 'schedule' ? 'schedule' : 'expenses', id)); } catch (e) { showAlert("刪除失敗"); }
+                };
+
+                const selectDestination = (c) => { tripForm.value.destination = c.name; tripForm.value.currency = c.currency; showDestinationModal.value = false; };
+                const addDay = async () => { if(!canEdit.value) return; if (!currentTrip.value.endDate) return showAlert("請先設定旅遊日期"); const date = new Date(currentTrip.value.endDate); date.setDate(date.getDate() + 1); const newEndDate = date.toISOString().split('T')[0]; const tripsRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id); await updateDoc(tripsRef, { endDate: newEndDate }); currentTrip.value.endDate = newEndDate; days.value = calculateDays(currentTrip.value.startDate, newEndDate); };
+                const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${encodeURIComponent(loc)}`, '_blank');
+                const formatDate = (iso) => { const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; };
+
+                const sendInvite = async () => {
+                    if (!inviteEmail.value || !inviteEmail.value.includes('@')) return showAlert("請輸入有效的 Email");
+                    if ((currentTrip.value.pendingEmails || []).includes(inviteEmail.value)) return showAlert("已邀請過此人");
+                    
+                    if (!currentTrip.value.id) {
+                        tripForm.value.pendingEmails.push(inviteEmail.value);
+                    } else {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { pendingEmails: arrayUnion(inviteEmail.value) });
+                        } catch (e) { console.error(e); showAlert("邀請發送失敗"); }
+                    }
+                    inviteEmail.value = '';
+                };
+
+                const respondToInvite = async (trip, accept) => {
+                    const tripRef = doc(db, 'artifacts', appId, 'trips', trip.id);
+                    const batch = writeBatch(db);
+                    if (accept) {
+                        // 修改：加入 email 到成員資料
+                        const myData = {uid: user.value.uid, name: settings.value.displayName || user.value.displayName || '新成員', photo: settings.value.photoURL || user.value.photoURL, email: user.value.email};
+                        batch.update(tripRef, { 
+                            memberUids: arrayUnion(user.value.uid),
+                            pendingEmails: arrayRemove(user.value.email),
+                            companions: arrayUnion(myData.name),
+                            members: arrayUnion(myData)
+                        });
+                    } else { batch.update(tripRef, { pendingEmails: arrayRemove(user.value.email) }); }
+                    await batch.commit();
+                };
+
+                const removePending = async (email) => {
+                    const doRemove = async () => {
+                        if(!currentTrip.value.id) {
+                            tripForm.value.pendingEmails = tripForm.value.pendingEmails.filter(e => e !== email);
+                        } else {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            await updateDoc(tripRef, { pendingEmails: arrayRemove(email) });
+                        }
+                        showConfirmModal.value = false;
+                    };
+                    confirmMessage.value = `確定取消邀請 ${email} 嗎？`;
+                    pendingAction.value = doRemove;
+                    showConfirmModal.value = true;
+                };
+
+                const kickMember = (member) => {
+                    if (!isOwner.value) return;
+
+                    const doKick = async () => {
+                        try {
+                            const tripRef = doc(db, 'artifacts', appId, 'trips', currentTrip.value.id);
+                            const batch = writeBatch(db);
+                            
+                            // 1. 移除 UID 權限
+                            batch.update(tripRef, { memberUids: arrayRemove(member.uid) });
+                            
+                            // 2. 移除成員資料物件
+                            batch.update(tripRef, { members: arrayRemove(member) });
+                            
+                            // 3. 移除旅伴名單
+                            batch.update(tripRef, { companions: arrayRemove(member.name) });
+
+                            await batch.commit();
+                        } catch (e) {
+                            console.error(e);
+                            showAlert("移除成員失敗");
+                        }
+                        showConfirmModal.value = false;
+                    };
+
+                    confirmMessage.value = `確定要將 ${member.name} 移出旅程嗎？`;
+                    pendingAction.value = doKick;
+                    showConfirmModal.value = true;
+                };
+
+                const removeCompanion = async (index) => {
+                    // 保留原本的移除邏輯
+                };
+
+                const currentDayEvents = computed(() => schedule.value.filter(e => e.dayIndex === currentDayIndex.value));
+                const sortedEvents = computed(() => [...currentDayEvents.value].sort((a, b) => a.time.localeCompare(b.time)));
+                const sortedExpenses = computed(() => [...expenses.value].sort((a, b) => new Date(b.date) - new Date(a.date)));
+                const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+                const averageExpense = computed(() => {
+                    if (!currentTrip.value.companions || currentTrip.value.companions.length === 0) return 0;
+                    return Math.round(totalExpense.value / currentTrip.value.companions.length);
+                });
+                const budgetPercentage = computed(() => { if (!currentTrip.value.budget || currentTrip.value.budget <= 0) return 0; return (totalExpense.value / currentTrip.value.budget) * 100; });
+                const remainingBudget = computed(() => (currentTrip.value.budget || 0) - totalExpense.value);
+                const budgetColor = computed(() => { const p = budgetPercentage.value; if (p >= 100) return 'bg-red-500'; if (p >= 80) return 'bg-red-400'; if (p >= 50) return 'bg-yellow-400'; return 'bg-green-400'; });
+                const userStats = computed(() => {
+                    const myTrips = trips.value; let totalDays = 0; const places = new Set();
+                    myTrips.forEach(t => { if (t.startDate && t.endDate) { totalDays += Math.ceil(Math.abs(new Date(t.endDate) - new Date(t.startDate)) / (1000 * 60 * 60 * 24)) + 1; } if (t.destination) places.add(t.destination); });
+                    return { totalTrips: myTrips.length, totalDays, uniquePlaces: places.size };
+                });
+                
+                const debts = computed(() => {
+                    const usersList = currentTrip.value.companions || []; 
+                    if (usersList.length < 2) return [];
+                    
+                    const balances = {}; 
+                    usersList.forEach(u => balances[u] = 0);
+
+                    expenses.value.forEach(exp => { 
+                        const amount = Number(exp.amount) || 0;
+                        const payer = exp.payer;
+                        
+                        if (!balances.hasOwnProperty(payer)) return;
+
+                        balances[payer] += amount;
+
+                        if (exp.splitMode === 'custom' && exp.customAmounts) {
+                            for (const [user, share] of Object.entries(exp.customAmounts)) {
+                                if (balances.hasOwnProperty(user)) {
+                                    balances[user] -= (Number(share) || 0);
+                                }
+                            }
+                        } else {
+                            const targets = (exp.involved && exp.involved.length > 0) ? exp.involved : usersList;
+                            const perPerson = amount / targets.length;
+                            
+                            targets.forEach(u => {
+                                if (balances.hasOwnProperty(u)) {
+                                    balances[u] -= perPerson;
+                                }
+                            });
+                        }
+                    });
+
+                    let debtors = [], creditors = []; 
+                    for (const [u, amount] of Object.entries(balances)) { 
+                        if (amount < -1) debtors.push({ user: u, amount }); 
+                        if (amount > 1) creditors.push({ user: u, amount }); 
+                    }
+                    debtors.sort((a, b) => a.amount - b.amount); 
+                    creditors.sort((a, b) => b.amount - a.amount);
+                    
+                    const result = []; 
+                    let i = 0, j = 0;
+                    while (i < debtors.length && j < creditors.length) { 
+                        let amount = Math.min(Math.abs(debtors[i].amount), creditors[j].amount); 
+                        result.push({ from: debtors[i].user, to: creditors[j].user, amount: Math.round(amount) }); 
+                        debtors[i].amount += amount; 
+                        creditors[j].amount -= amount; 
+                        if (Math.abs(debtors[i].amount) < 1) i++; 
+                        if (creditors[j].amount < 1) j++; 
+                    }
+                    return result;
+                });
+
+                return {
+                    user, loading, loginError,
+                    currentView, trips, currentTrip,
+                    activeTab, days, currentDayIndex,
+                    showItemModal, showTripModal, showUserMenu, showProfileModal, showDestinationModal,
+                    showConfirmModal, confirmMessage, executeConfirm, confirmAction,
+                    showErrorModal, errorMessage, copyToast, inviteEmail,
+                    showShareModal, openShareModal, 
+                    activeRegion, regions, selectDestination,
+                    profileForm, tripForm, form, expenseForm,
+                    schedule, expenses, settings,
+                    currentDayEvents, sortedEvents, sortedExpenses, totalExpense, averageExpense, debts,
+                    budgetPercentage, remainingBudget, budgetColor, userStats,
+                      isEditing,
+                      submitting,
+                    loginWithGoogle, copyUid,
+                    onFabClick, enterTrip, exitTrip, openTripSettings, saveTrip,
+                    openAddItemModal, editEvent, submitItem, deleteItem,
+                    openEditProfile, saveProfile,
+                    addDay, openMap, formatDate,
+                    sendInvite, respondToInvite, removePending, removeCompanion, showCompanionManager, getMemberPhoto, deleteTrip, isOwner, editExpense, requestDeleteItem,
+                    activeProfileTab, handleFileUpload,
+                    shareTrip,
+                    kickMember,
+                    customSplitSum, 
+                    remainingSplit, 
+                    toggleInvolved,
+                    linkCopied, 
+                    showAccessMenu,
+                    showRoleMenu,
+                    setAccessMode,
+                    setAccessRole,
+                    canEdit,
+                    activeViewers,
+                    activeViewersCount,
+                    checkViewerStatus
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
