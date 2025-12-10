@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Travel Pro - 旅途日記</title>
+    <title>Travel Journal 📔</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -14,13 +14,17 @@
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #F3F4F6; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+        .slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); }
     </style>
     
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { primary: '#6366f1', secondary: '#ec4899', googleBlue: '#1a73e8' },
+                    colors: { primary: '#6366f1', secondary: '#ec4899', journal: '#8b5cf6' },
                     padding: { 'safe': 'env(safe-area-inset-bottom)' }
                 }
             }
@@ -31,79 +35,127 @@
 
     <div id="app" class="h-full flex flex-col w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative">
 
-        <div v-if="loading" class="absolute inset-0 z-[100] bg-white flex items-center justify-center">
-            <span class="text-gray-600 font-bold">正在載入...</span>
-        </div>
-
-        <template v-else-if="user">
-            <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0">
-                <h1 class="text-lg font-bold text-gray-800">旅途日記 📖</h1>
-                <div class="flex items-center gap-3">
-                    <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
-                         class="w-9 h-9 rounded-full border border-gray-200 object-cover">
-                </div>
-            </header>
-
-            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50 pb-24">
-                
-                <div v-if="diaries.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
-                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✍️</div>
-                    <p>還沒有寫日記</p>
-                    <p class="text-xs mt-2">記錄你的旅行點滴吧</p>
-                </div>
-
-                <div v-else class="space-y-4">
-                    <div v-for="diary in diaries" :key="diary.id" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="font-bold text-gray-800">{{ diary.title }}</h3>
-                            <span class="text-xs text-gray-400">{{ formatDate(diary.createdAt) }}</span>
-                        </div>
-                        <p class="text-gray-600 text-sm whitespace-pre-wrap">{{ diary.content }}</p>
-                        <div class="mt-3 flex justify-end">
-                            <button @click="deleteDiary(diary.id)" class="text-xs text-red-400 hover:text-red-600">刪除</button>
-                        </div>
-                    </div>
-                </div>
-
-            </main>
-
-            <button @click="showAddModal = true" class="absolute bottom-24 right-5 w-14 h-14 bg-secondary text-white rounded-full shadow-lg shadow-pink-200 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40">
-                <i class="fas fa-pen"></i>
+        <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0 sticky top-0">
+            <button @click="goBack" class="w-8 h-8 flex items-center justify-center -ml-2 text-gray-500 hover:text-gray-800">
+                <i class="fas fa-arrow-left"></i>
             </button>
+            <h1 class="text-lg font-bold text-gray-800">旅途日記 📔</h1>
+            <div class="w-8"></div> </header>
 
-            <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
-                <a href="index.html" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200 text-gray-300 hover:text-gray-500">
-                    <i class="fas fa-suitcase text-xl mb-0.5"></i><span class="text-[10px] font-bold tracking-wide">首頁</span>
-                </a>
-                <div class="w-px h-8 bg-gray-100"></div>
-                <button class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200 text-primary">
-                    <i class="fas fa-book-open text-xl mb-0.5 transform scale-110"></i><span class="text-[10px] font-bold tracking-wide">旅途日記</span>
-                </button>
-            </nav>
-
-            <div v-if="showAddModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showAddModal = false">
-                <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">寫日記</h3>
-                    <input v-model="newDiary.title" type="text" placeholder="標題" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3 outline-none focus:border-primary">
-                    <textarea v-model="newDiary.content" rows="4" placeholder="今天發生了什麼事..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4 outline-none focus:border-primary resize-none"></textarea>
-                    <button @click="saveDiary" class="w-full py-3 bg-secondary text-white rounded-xl font-bold shadow-lg shadow-pink-200">儲存</button>
-                </div>
+        <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50">
+            
+            <div v-if="loading" class="flex justify-center mt-10">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
 
-        </template>
-        
-        <div v-else-if="!loading" class="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center">
-            <p>請先登入</p>
-            <a href="index.html" class="mt-4 text-primary font-bold">返回首頁登入</a>
-        </div>
+            <div v-else-if="journals.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 text-2xl">📝</div>
+                <p>還沒有寫下任何回憶</p>
+                <p class="text-xs mt-2">點擊右下角「+」記錄這一刻</p>
+            </div>
+
+            <div v-else class="space-y-6 pb-24">
+                <div v-for="entry in journals" :key="entry.id" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative group">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-purple-50 text-journal px-2 py-1 rounded-lg text-xs font-bold font-mono">
+                                {{ formatDate(entry.date) }}
+                            </div>
+                            <span class="text-xl" title="Mood">{{ entry.mood }}</span>
+                            <span class="text-xl" title="Weather">{{ entry.weather }}</span>
+                        </div>
+                        <button @click="deleteJournal(entry.id)" class="text-gray-300 hover:text-red-500 transition px-2">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+
+                    <p class="text-gray-700 whitespace-pre-wrap leading-relaxed mb-3">{{ entry.content }}</p>
+
+                    <div v-if="entry.photos && entry.photos.length > 0" class="grid gap-2" :class="gridClass(entry.photos.length)">
+                        <div v-for="(photo, idx) in entry.photos" :key="idx" class="relative aspect-square rounded-xl overflow-hidden bg-gray-100 cursor-pointer" @click="openImage(photo)">
+                            <img :src="photo" class="w-full h-full object-cover hover:scale-105 transition duration-500">
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-3 border-t border-gray-50 flex justify-between items-center text-xs text-gray-400">
+                        <span><i class="fas fa-user-circle mr-1"></i> {{ entry.authorName }}</span>
+                        <span>{{ formatTime(entry.createdAt) }}</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <button @click="openEditor" class="absolute bottom-8 right-5 w-14 h-14 bg-gradient-to-tr from-journal to-purple-600 text-white rounded-full shadow-lg shadow-purple-200 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40">
+            <i class="fas fa-pen"></i>
+        </button>
+
+        <Transition name="slide-up">
+            <div v-if="showEditor" class="absolute inset-0 z-50 bg-white flex flex-col">
+                <div class="flex justify-between items-center p-4 border-b border-gray-100">
+                    <button @click="showEditor = false" class="text-gray-500 font-medium">取消</button>
+                    <h3 class="font-bold text-gray-800">新日記</h3>
+                    <button @click="saveJournal" :disabled="saving" class="bg-journal text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-md shadow-purple-200 disabled:opacity-50">
+                        {{ saving ? '儲存中...' : '發佈' }}
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-5">
+                    <div class="flex gap-3 mb-4 overflow-x-auto no-scrollbar pb-2">
+                        <input type="date" v-model="form.date" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-journal">
+                        
+                        <select v-model="form.mood" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-journal appearance-none">
+                            <option value="😊">😊 開心</option>
+                            <option value="😍">😍 興奮</option>
+                            <option value="😌">😌 放鬆</option>
+                            <option value="😐">😐 普通</option>
+                            <option value="😫">😫 疲累</option>
+                            <option value="😡">😡 生氣</option>
+                        </select>
+
+                        <select v-model="form.weather" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-journal appearance-none">
+                            <option value="☀️">☀️ 晴天</option>
+                            <option value="☁️">☁️ 多雲</option>
+                            <option value="🌧️">🌧️ 雨天</option>
+                            <option value="⛈️">⛈️ 雷雨</option>
+                            <option value="❄️">❄️ 雪天</option>
+                        </select>
+                    </div>
+
+                    <textarea v-model="form.content" placeholder="今天發生了什麼有趣的事..." class="w-full h-40 text-lg text-gray-700 placeholder-gray-300 outline-none resize-none mb-4 leading-relaxed"></textarea>
+
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <div v-for="(photo, index) in form.photos" :key="index" class="relative aspect-square rounded-xl overflow-hidden group">
+                            <img :src="photo" class="w-full h-full object-cover">
+                            <button @click="removePhoto(index)" class="absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs backdrop-blur-sm">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <label v-if="form.photos.length < 9" class="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-50 hover:border-journal hover:text-journal transition">
+                            <i class="fas fa-camera text-xl mb-1"></i>
+                            <span class="text-xs font-bold">加照片</span>
+                            <input type="file" accept="image/*" multiple @change="handleImageUpload" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
+        <Transition name="fade">
+            <div v-if="viewingImage" class="absolute inset-0 z-[60] bg-black flex items-center justify-center p-2" @click="viewingImage = null">
+                <img :src="viewingImage" class="max-w-full max-h-full rounded-lg shadow-2xl">
+                <button class="absolute top-4 right-4 text-white text-2xl drop-shadow-lg"><i class="fas fa-times"></i></button>
+            </div>
+        </Transition>
 
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, doc, onSnapshot, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
+        // --- 設定 (與 index.html 相同) ---
         const secretPart = "FBLe6QQAySZGw4qv3LB8Q"; 
         const userConfig = { apiKey: "AIzaSyAl4peLsSkvm-" + secretPart, authDomain: "travel-fa395.firebaseapp.com", projectId: "travel-fa395", storageBucket: "travel-fa395.firebasestorage.app", messagingSenderId: "837385103808", appId: "1:837385103808:web:f998a17e4aeccf4b7f8025", measurementId: "G-31D354GWVR" };
         const firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : userConfig;
@@ -112,59 +164,162 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const { createApp, ref, onMounted } = window.Vue;
+        const { createApp, ref, onMounted, computed } = window.Vue;
 
         createApp({
             setup() {
                 const user = ref(null);
                 const loading = ref(true);
-                const diaries = ref([]);
-                const showAddModal = ref(false);
-                const newDiary = ref({ title: '', content: '' });
+                const journals = ref([]);
+                const showEditor = ref(false);
+                const saving = ref(false);
+                const viewingImage = ref(null);
+                
+                // Get Trip ID from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const tripId = urlParams.get('tripId');
+
+                const form = ref({
+                    content: '',
+                    date: new Date().toISOString().split('T')[0],
+                    mood: '😊',
+                    weather: '☀️',
+                    photos: []
+                });
+
+                const goBack = () => {
+                    // Go back to the main app dashboard/planner
+                    window.location.href = `index.html?tripId=${tripId}`;
+                };
 
                 onMounted(() => {
                     onAuthStateChanged(auth, (u) => {
                         user.value = u;
-                        loading.value = false;
-                        if (u) {
-                            // 讀取日記
-                            const q = query(collection(db, 'artifacts', appId, 'diaries'), where('uid', '==', u.uid), orderBy('createdAt', 'desc'));
-                            onSnapshot(q, (snapshot) => {
-                                diaries.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            });
+                        if (u && tripId) {
+                            fetchJournals();
+                        } else if (!tripId) {
+                            alert("未指定旅程，請從主頁進入");
+                            window.location.href = 'index.html';
                         }
+                        loading.value = false;
                     });
                 });
 
-                const saveDiary = async () => {
-                    if (!newDiary.value.title || !newDiary.value.content) return alert('請填寫完整');
+                const fetchJournals = () => {
+                    const q = query(
+                        collection(db, 'artifacts', appId, 'trips', tripId, 'journal'),
+                        orderBy('date', 'desc'),
+                        orderBy('createdAt', 'desc')
+                    );
+                    onSnapshot(q, (snapshot) => {
+                        journals.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                };
+
+                const handleImageUpload = (event) => {
+                    const files = event.target.files;
+                    if (!files) return;
+
+                    // Limit photo count
+                    if (form.value.photos.length + files.length > 9) {
+                        alert("一次最多上傳 9 張照片");
+                        return;
+                    }
+
+                    Array.from(files).forEach(file => {
+                        if (file.size > 5 * 1024 * 1024) { // 5MB limit check before compression
+                             alert("部分圖片過大，建議選擇較小的圖片");
+                             return;
+                        }
+
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            // Simple Compression logic using Canvas
+                            const img = new Image();
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                const maxWidth = 800; // Resize to max 800px width
+                                const scale = maxWidth / img.width;
+                                const width = (img.width > maxWidth) ? maxWidth : img.width;
+                                const height = (img.width > maxWidth) ? img.height * scale : img.height;
+                                
+                                canvas.width = width;
+                                canvas.height = height;
+                                ctx.drawImage(img, 0, 0, width, height);
+                                
+                                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% quality
+                                form.value.photos.push(dataUrl);
+                            };
+                            img.src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                };
+
+                const removePhoto = (index) => {
+                    form.value.photos.splice(index, 1);
+                };
+
+                const openEditor = () => {
+                    form.value = {
+                        content: '',
+                        date: new Date().toISOString().split('T')[0],
+                        mood: '😊',
+                        weather: '☀️',
+                        photos: []
+                    };
+                    showEditor.value = true;
+                };
+
+                const saveJournal = async () => {
+                    if (!form.value.content && form.value.photos.length === 0) return;
+                    saving.value = true;
                     try {
-                        await addDoc(collection(db, 'artifacts', appId, 'diaries'), {
-                            uid: user.value.uid,
-                            title: newDiary.value.title,
-                            content: newDiary.value.content,
+                        await addDoc(collection(db, 'artifacts', appId, 'trips', tripId, 'journal'), {
+                            ...form.value,
+                            authorUid: user.value.uid,
+                            authorName: user.value.displayName || '我',
                             createdAt: new Date().toISOString()
                         });
-                        newDiary.value = { title: '', content: '' };
-                        showAddModal.value = false;
+                        showEditor.value = false;
                     } catch (e) {
-                        alert('儲存失敗');
+                        console.error(e);
+                        alert("儲存失敗: " + e.message);
+                    } finally {
+                        saving.value = false;
                     }
                 };
 
-                const deleteDiary = async (id) => {
-                    if(confirm('確定刪除？')) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'diaries', id));
+                const deleteJournal = async (id) => {
+                    if (!confirm("確定要刪除這篇日記嗎？")) return;
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'trips', tripId, 'journal', id));
+                    } catch (e) {
+                        alert("刪除失敗");
                     }
                 };
+                
+                const openImage = (src) => { viewingImage.value = src; };
 
-                const formatDate = (iso) => {
+                // Helpers
+                const formatDate = (d) => d.replace(/-/g, '/');
+                const formatTime = (iso) => {
+                    if(!iso) return '';
                     const d = new Date(iso);
-                    return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                    return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                };
+                const gridClass = (count) => {
+                    if (count === 1) return 'grid-cols-1';
+                    if (count === 2) return 'grid-cols-2';
+                    return 'grid-cols-3';
                 };
 
                 return {
-                    user, loading, diaries, showAddModal, newDiary, saveDiary, deleteDiary, formatDate
+                    loading, journals, showEditor, saving, form, viewingImage,
+                    goBack, openEditor, saveJournal, deleteJournal, 
+                    handleImageUpload, removePhoto, openImage,
+                    formatDate, formatTime, gridClass
                 };
             }
         }).mount('#app');
