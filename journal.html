@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Travel Pro - 旅途日記</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #F3F4F6; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#6366f1', secondary: '#ec4899', googleBlue: '#1a73e8' },
+                    padding: { 'safe': 'env(safe-area-inset-bottom)' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="text-gray-800 h-screen overflow-hidden flex flex-col">
+
+    <div id="app" class="h-full flex flex-col w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative">
+
+        <div v-if="loading" class="absolute inset-0 z-[100] bg-white flex items-center justify-center">
+            <span class="text-gray-600 font-bold">正在載入...</span>
+        </div>
+
+        <template v-else-if="user">
+            <header class="bg-white px-5 py-3 shadow-sm z-10 flex justify-between items-center h-16 shrink-0">
+                <h1 class="text-lg font-bold text-gray-800">旅途日記 📖</h1>
+                <div class="flex items-center gap-3">
+                    <img :src="user.photoURL || 'https://ui-avatars.com/api/?name=User'" 
+                         class="w-9 h-9 rounded-full border border-gray-200 object-cover">
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-y-auto no-scrollbar p-4 relative bg-gray-50 pb-24">
+                
+                <div v-if="diaries.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-400">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-2xl">✍️</div>
+                    <p>還沒有寫日記</p>
+                    <p class="text-xs mt-2">記錄你的旅行點滴吧</p>
+                </div>
+
+                <div v-else class="space-y-4">
+                    <div v-for="diary in diaries" :key="diary.id" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-gray-800">{{ diary.title }}</h3>
+                            <span class="text-xs text-gray-400">{{ formatDate(diary.createdAt) }}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm whitespace-pre-wrap">{{ diary.content }}</p>
+                        <div class="mt-3 flex justify-end">
+                            <button @click="deleteDiary(diary.id)" class="text-xs text-red-400 hover:text-red-600">刪除</button>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+
+            <button @click="showAddModal = true" class="absolute bottom-24 right-5 w-14 h-14 bg-secondary text-white rounded-full shadow-lg shadow-pink-200 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-40">
+                <i class="fas fa-pen"></i>
+            </button>
+
+            <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-30 h-20 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                <a href="index.html" class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200 text-gray-300 hover:text-gray-500">
+                    <i class="fas fa-suitcase text-xl mb-0.5"></i><span class="text-[10px] font-bold tracking-wide">首頁</span>
+                </a>
+                <div class="w-px h-8 bg-gray-100"></div>
+                <button class="flex flex-col items-center justify-center w-1/2 h-full space-y-1 transition duration-200 text-primary">
+                    <i class="fas fa-book-open text-xl mb-0.5 transform scale-110"></i><span class="text-[10px] font-bold tracking-wide">旅途日記</span>
+                </button>
+            </nav>
+
+            <div v-if="showAddModal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showAddModal = false">
+                <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl mx-5">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">寫日記</h3>
+                    <input v-model="newDiary.title" type="text" placeholder="標題" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3 outline-none focus:border-primary">
+                    <textarea v-model="newDiary.content" rows="4" placeholder="今天發生了什麼事..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4 outline-none focus:border-primary resize-none"></textarea>
+                    <button @click="saveDiary" class="w-full py-3 bg-secondary text-white rounded-xl font-bold shadow-lg shadow-pink-200">儲存</button>
+                </div>
+            </div>
+
+        </template>
+        
+        <div v-else-if="!loading" class="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center">
+            <p>請先登入</p>
+            <a href="index.html" class="mt-4 text-primary font-bold">返回首頁登入</a>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        const secretPart = "FBLe6QQAySZGw4qv3LB8Q"; 
+        const userConfig = { apiKey: "AIzaSyAl4peLsSkvm-" + secretPart, authDomain: "travel-fa395.firebaseapp.com", projectId: "travel-fa395", storageBucket: "travel-fa395.firebasestorage.app", messagingSenderId: "837385103808", appId: "1:837385103808:web:f998a17e4aeccf4b7f8025", measurementId: "G-31D354GWVR" };
+        const firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : userConfig;
+        const appId = (typeof __app_id !== 'undefined') ? __app_id : 'default-app';
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const { createApp, ref, onMounted } = window.Vue;
+
+        createApp({
+            setup() {
+                const user = ref(null);
+                const loading = ref(true);
+                const diaries = ref([]);
+                const showAddModal = ref(false);
+                const newDiary = ref({ title: '', content: '' });
+
+                onMounted(() => {
+                    onAuthStateChanged(auth, (u) => {
+                        user.value = u;
+                        loading.value = false;
+                        if (u) {
+                            // 讀取日記
+                            const q = query(collection(db, 'artifacts', appId, 'diaries'), where('uid', '==', u.uid), orderBy('createdAt', 'desc'));
+                            onSnapshot(q, (snapshot) => {
+                                diaries.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            });
+                        }
+                    });
+                });
+
+                const saveDiary = async () => {
+                    if (!newDiary.value.title || !newDiary.value.content) return alert('請填寫完整');
+                    try {
+                        await addDoc(collection(db, 'artifacts', appId, 'diaries'), {
+                            uid: user.value.uid,
+                            title: newDiary.value.title,
+                            content: newDiary.value.content,
+                            createdAt: new Date().toISOString()
+                        });
+                        newDiary.value = { title: '', content: '' };
+                        showAddModal.value = false;
+                    } catch (e) {
+                        alert('儲存失敗');
+                    }
+                };
+
+                const deleteDiary = async (id) => {
+                    if(confirm('確定刪除？')) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'diaries', id));
+                    }
+                };
+
+                const formatDate = (iso) => {
+                    const d = new Date(iso);
+                    return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                };
+
+                return {
+                    user, loading, diaries, showAddModal, newDiary, saveDiary, deleteDiary, formatDate
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
